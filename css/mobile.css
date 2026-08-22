@@ -1,0 +1,442 @@
+/* =============================================================================
+   Editorial Visual Archive · Mobile composition layer
+
+   An ADAPTATION layer, not a rewrite. The desktop system above is untouched;
+   everything here is scoped to compact windows (≤719px) and re-composes the
+   same tokens for touch: thumb reach, sheets, gestures, progressive
+   disclosure. Nothing in this file changes how desktop renders.
+   ============================================================================= */
+
+@media (max-width: 719px) {
+
+  /* ==========================================================================
+     1 · Typography recomposed, not shrunk
+     ========================================================================== */
+  .greet h1 { font-size: 30px; margin-block-end: 8px; }
+  .greet__stats { font-size: 14px; }
+  .page-head h1 { font-size: 23px; }
+
+  /* Nothing may make the document wider than the phone. Long tokens (URLs,
+     hashtags, creator handles) wrap instead of pushing the layout. */
+  html, body { overflow-x: clip; max-width: 100%; }
+  .stage { max-width: 100%; min-width: 0; }
+  .greet__stats, .page-head p, .empty p,
+  .card__caption, .card__author, .pane__text, .watch__meta p { overflow-wrap: anywhere; }
+
+  /* Skip work for off-screen tiles: long Library grids on a phone skip
+     layout/paint for anything outside the viewport (intrinsic size keeps the
+     scrollbar honest while images lazy-load). */
+  .grid > * { content-visibility: auto; contain-intrinsic-size: auto 340px; }
+
+  /* ==========================================================================
+     2 · Compact header on scroll — the shell's data-scrolled concept,
+         used more aggressively.
+     ========================================================================== */
+  :root { --topbar-h: 56px; }
+  .topbar {
+    padding-block: 10px;
+    transition: min-height var(--t-ui) var(--ease), border-color var(--t-ui) var(--ease),
+                padding var(--t-ui) var(--ease);
+  }
+  .topbar[data-scrolled="true"] { min-height: 48px; padding-block: 6px; }
+
+  /* While the search sheet is open it owns the screen, including over the
+     bottom navigation. */
+  body.is-searching .topbar { z-index: 950; }
+  body.is-searching .navbar { translate: -50% calc(100% + 46px); }
+
+  /* ==========================================================================
+     3 · Pull-down search sheet
+     --------------------------------------------------------------------------
+     The desktop dropdown becomes a full-width surface: search field stays
+     where the finger expects it, everything below scrolls.
+     ========================================================================== */
+  .search__panel {
+    position: fixed;
+    inset: 0;
+    z-index: 900;
+    width: auto;
+    max-width: none;
+    inset-inline-start: 0;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    padding: calc(var(--topbar-h) + env(safe-area-inset-top)) 16px
+             calc(24px + env(safe-area-inset-bottom));
+    overflow-y: auto;
+    background: var(--bg);
+    animation: mobile-sheet-up var(--t-spatial) var(--ease-out);
+  }
+  [data-motion="reduced"] .search__panel { animation: none; }
+  .search__back {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: calc(100% + 8px);
+    height: 44px;
+    margin-block-end: 10px;
+    padding-inline: 4px;
+    border: none;
+    border-radius: var(--r-control);
+    background: transparent;
+    color: var(--text-2);
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .search__back > svg { width: 20px; height: 20px; flex: none; }
+  .search__group { padding-inline: 0; }
+  .search__scope { padding-inline: 2px; }
+  .search__chips .pill { height: 40px; padding-inline: 16px; font-size: 13.5px; }
+  .search__foot kbd { display: none; }
+
+  @keyframes mobile-sheet-up {
+    from { opacity: 0; transform: translateY(18px); }
+    to { opacity: 1; transform: none; }
+  }
+
+  /* ==========================================================================
+     4 · Floating short navigation bar
+     --------------------------------------------------------------------------
+     Material direction: navigation floats as its own object instead of
+     consuming a docked strip. Tonal surface + restrained elevation, not a
+     glass gimmick; ordinary content surfaces stay opaque and quiet.
+     Shape hierarchy: nav 26px > sheets 24px > surfaces 12px > media default.
+     ========================================================================== */
+  .stage { padding-block-end: 148px; }
+
+  .navbar {
+    inset-inline: auto;
+    inset-inline-start: 50%;
+    inset-block-end: calc(10px + env(safe-area-inset-bottom));
+    translate: -50% 0;
+    width: min(430px, calc(100vw - 20px));
+    padding: 7px 9px;
+    border: 1px solid var(--line);
+    border-radius: 26px;
+    background: color-mix(in srgb, var(--elevated) 88%, transparent);
+    backdrop-filter: blur(18px) saturate(1.25);
+    box-shadow: var(--shadow-2);
+    /* Expressive spring on the spatial move; opacity stays an effect. */
+    transition: translate var(--spring-move), opacity var(--t-ui) var(--ease);
+  }
+  /* Scroll-responsive: recedes fully off-screen (including its own shadow),
+     returns on scroll up / at top. */
+  .navbar[data-hidden="true"] { translate: -50% calc(100% + 46px); }
+
+  .navbar__item { padding-block: 5px 4px; border-radius: 18px; }
+  .navbar__item span:not(.rail__pill) { font-size: 11px; letter-spacing: 0.01em; }
+
+  /* Expressive selected destination: one strong accent container, everything
+     else stays quiet. The pill grows with a spring — the shape morph is the
+     whole Material 3 Expressive signature. */
+  .navbar__item[aria-selected="true"] .rail__pill {
+    width: 62px;
+    height: 30px;
+    border-radius: 15px;
+    background: var(--accent);
+    color: var(--on-accent);
+    transition: width var(--spring-fast), height var(--spring-fast),
+                background-color var(--t-ui) var(--ease);
+  }
+
+  /* More sheet rows (built by js/mobile.js) */
+  .more-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    padding: 13px 12px;
+    border: none;
+    border-radius: var(--r-control);
+    background: transparent;
+    color: var(--text);
+    text-align: start;
+    font-size: 14px;
+    transition: background-color var(--t-micro) var(--ease);
+  }
+  .more-row:hover { background: var(--surface-2); }
+  .more-row > svg { width: 20px; height: 20px; flex: none; color: var(--text-2); }
+  .more-row b { display: block; font-weight: 500; font-size: 14px; }
+  .more-row small { display: block; color: var(--text-3); font-size: 12px; }
+
+  /* ==========================================================================
+     5 · Discover rhythm — big cards, partial next-card cue, alternating rails
+     --------------------------------------------------------------------------
+     Desktop keeps its 212px rail; on a phone each card takes most of the
+     viewport so the next card peeks as the discoverability cue. No arrows.
+     ========================================================================== */
+  .discover { gap: 36px; contain: content; }
+  .rail-scroll { grid-auto-columns: minmax(70vw, 72vw); gap: 12px; scroll-padding-inline: 16px; }
+  .section--wide .rail-scroll { grid-auto-columns: minmax(86vw, 88vw); }
+  .section { contain: layout paint style; }
+  .greet { padding-block-start: 22px; }
+
+  /* Peek-aware rails: the right edge fades ONLY while more content exists.
+     Scroll-linked animation drives --edge from visible to gone as the rail
+     reaches its end; browsers without scroll timelines simply get no fade. */
+  .rail-scroll {
+    -webkit-mask-image: linear-gradient(to right,
+      #000 calc(100% - 34px), rgb(0 0 0 / var(--edge, 1)));
+    mask-image: linear-gradient(to right,
+      #000 calc(100% - 34px), rgb(0 0 0 / var(--edge, 1)));
+  }
+
+  /* Selection mode: a contextual floating action bar in the thumb zone —
+     exists only while selecting, gone completely afterwards. */
+  .bulk {
+    inset-inline-start: 50%;
+    inset-block-end: calc(88px + env(safe-area-inset-bottom));
+    max-width: calc(100vw - 24px);
+    gap: 2px;
+    border-radius: 22px;
+    background: color-mix(in srgb, var(--elevated) 90%, transparent);
+    backdrop-filter: blur(16px);
+  }
+  @keyframes bulk-in { from { opacity: 0; translate: -50% 12px; } to { opacity: 1; translate: -50% 0; } }
+
+  /* ==========================================================================
+     4b · Contextual floating toolbars
+     --------------------------------------------------------------------------
+     "Content stays grounded, actions float." Library's control row becomes a
+     floating tonal toolbar hovering above the grid near the thumb zone;
+     Discover's refresh becomes the page's one contextual floating action.
+     Both disappear during immersive/modal states.
+
+     Width discipline: the bar is pinned left/right (never sized by its
+     content), controls collapse to icons so ANY phone width fits, and the
+     type segment scrolls internally if it still doesn't fit. Nothing here
+     can push the document wider than the viewport.
+     ========================================================================== */
+  .libbar {
+    position: fixed;
+    left: 10px;
+    right: 10px;
+    width: auto;
+    top: auto;
+    inset-block-end: calc(86px + env(safe-area-inset-bottom));
+    z-index: 640;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    gap: 6px;
+    min-width: 0;
+    padding: 6px 8px;
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    background: color-mix(in srgb, var(--elevated) 88%, transparent);
+    backdrop-filter: blur(16px) saturate(1.25);
+    box-shadow: var(--shadow-2);
+    transition: translate var(--spring-move), opacity var(--t-ui) var(--ease);
+  }
+  /* Item count is removed from the floating bar entirely (mobile) — the bar
+     carries only type chips and actions. */
+  .libbar__count { display: none; }
+  /* Type chips: scrollable strip, never grows the bar. */
+  .libbar__kinds {
+    order: 0;
+    flex: 0 1 auto;
+    min-width: 0;
+    width: auto;
+    margin-inline-start: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .libbar__kinds::-webkit-scrollbar { display: none; }
+  .libbar__kinds .seg__item { padding-inline: 10px; }
+  /* Action cluster: icons only — labels live in aria-label/title. */
+  .libbar__right {
+    flex: none;
+    margin-inline-start: 0;
+    width: auto;
+    gap: 0;
+  }
+  .libbar__right .ctl > span:not(.ctl__badge) { display: none; }
+  .libbar__right .ctl { padding-inline: 9px; }
+  .libbar::-webkit-scrollbar { display: none; }
+  /* While picking, the bulk bar owns the floating layer. */
+  .stage.is-picking .libbar,
+  body.is-searching .libbar,
+  body.is-searching .discover__refresh { opacity: 0; pointer-events: none; translate: 0 10px; }
+
+  /* Discover's single contextual action — an extended FAB. One clear job,
+     so it earns the expressive shape. */
+  .discover__refresh {
+    position: fixed;
+    inset-inline-end: 14px;
+    inset-block-start: auto;
+    inset-block-end: calc(86px + env(safe-area-inset-bottom));
+    z-index: 630;
+    height: 48px;
+    padding-inline: 18px;
+    border: none;
+    border-radius: 19px;
+    background: var(--accent);
+    color: var(--on-accent);
+    font-size: 13.5px;
+    box-shadow: var(--shadow-2);
+    transition: translate var(--spring-move), opacity var(--t-ui) var(--ease),
+                scale var(--spring-fast), background-color var(--t-micro) var(--ease);
+  }
+  .discover__refresh span { display: inline; }
+  .discover__refresh:active { scale: 0.96; }
+  .discover__refresh:hover { background: color-mix(in srgb, var(--accent) 92%, #000); color: var(--on-accent); }
+
+  /* ==========================================================================
+     4c · Adaptive surfaces — sheets get large top corners, matching the
+          shape hierarchy of the floating objects.
+     ========================================================================== */
+  .m3e-sheet--bottom {
+    border-start-start-radius: 24px;
+    border-start-end-radius: 24px;
+  }
+}
+
+/* Sub-380px: slightly narrower cards keep two columns breathing. */
+@media (max-width: 379px) {
+  .grid,
+  .grid[data-size="compact"],
+  .grid[data-size="comfortable"] { --gap: 10px; }
+  .masonry { column-gap: 10px; }
+}
+
+/* 600–900px tablets: three comfortable columns rather than desktop logic. */
+@media (min-width: 600px) and (max-width: 899px) {
+  .grid[data-layout="natural"],
+  .grid[data-layout="grid"] { --colmax: 3; }
+}
+
+/* ==========================================================================
+   6 · Viewer details pane as a true bottom sheet (peek / half / full)
+   ----------------------------------------------------------------------
+   Only on phones. The divider becomes the drag handle; js/viewer.js writes
+   data-pane="peek|half|full" as the handle is dragged or tapped.
+   ========================================================================== */
+@media (max-width: 719px) {
+  .viewer[data-state="context"] .viewer__pane {
+    position: absolute;
+    inset-inline: 0;
+    inset-block-end: 0;
+    z-index: 8;
+    max-height: none;
+    height: 62dvh;
+    border-inline-start: none;
+    border-block-start: 1px solid rgb(255 255 255 / 0.12);
+    border-start-start-radius: 18px;
+    border-start-end-radius: 18px;
+    box-shadow: 0 -18px 50px rgb(0 0 0 / 0.5);
+    /* Snap-settle: the sheet lands with Expressive's soft overshoot. */
+    transition: height var(--spring-settle);
+  }
+  .viewer[data-pane="peek"] .viewer__pane { height: 32dvh; }
+  .viewer[data-pane="half"] .viewer__pane { height: 62dvh; }
+  .viewer[data-pane="full"] .viewer__pane { height: calc(100dvh - 64px); }
+
+  /* The divider IS the drag handle now: a wide grab strip docked to the
+     sheet's top edge. */
+  .viewer[data-state="context"] .viewer__divider {
+    display: block !important; /* overrides viewer.css's ≤1023px hide */
+    position: absolute;
+    inset-inline: 0;
+    z-index: 9;
+    width: auto;
+    height: 26px;
+    margin: 0;
+    background: none;
+    cursor: grab;
+    touch-action: none;
+  }
+  .viewer[data-pane="peek"] .viewer__divider { inset-block-end: calc(32dvh - 26px); }
+  .viewer[data-pane="half"] .viewer__divider { inset-block-end: calc(62dvh - 26px); }
+  .viewer[data-pane="full"] .viewer__divider { inset-block-end: calc(100dvh - 64px - 26px); }
+  .viewer__divider::after {
+    width: 44px;
+    height: 4px;
+    opacity: 1;
+    background: rgb(255 255 255 / 0.34);
+  }
+  .viewer.is-resizing { cursor: grab; }
+}
+
+/* ==========================================================================
+   7 · Peek-aware rail fade — scroll-linked, where supported
+   ------------------------------------------------------------------------
+   --edge runs 1 → 0 across the rail's own scroll range, so the right-edge
+   fade exists only while there is more to scroll toward.
+   ========================================================================== */
+@property --edge {
+  syntax: "<number>";
+  initial-value: 1;
+  inherits: false;
+}
+@supports (animation-timeline: scroll()) {
+  @media (max-width: 719px) {
+    .rail-scroll {
+      animation: edge-fade linear both;
+      animation-timeline: scroll(self);
+    }
+    [data-motion="reduced"] .rail-scroll { animation: none; }
+  }
+}
+@keyframes edge-fade {
+  0% { --edge: 1; }
+  85% { --edge: 1; }
+  100% { --edge: 0; }
+}
+
+/* ==========================================================================
+   8 · Viewer — edge-to-edge media stage
+   ------------------------------------------------------------------------
+   The screen itself is the viewer; controls float above. Media may run
+   under system bars, buttons may not.
+   ========================================================================== */
+@media (max-width: 719px) {
+  .viewer__stage { padding: 52px 4px 76px; }
+  .viewer__frame img,
+  .viewer__frame video { max-height: calc(100dvh - 120px); border-radius: 6px; }
+}
+
+/* ==========================================================================
+   9 · Landscape phones — a different posture gets its own composition
+   ------------------------------------------------------------------------
+   Vertical space is scarce: nav compacts into a Short-Navigation-Bar-style
+   strip (icons only), floating toolbars tuck lower, the viewer goes truly
+   cinematic. Desktop (>959px) is never touched.
+   ========================================================================== */
+@media (orientation: landscape) and (max-height: 520px) and (max-width: 959px) {
+  :root { --topbar-h: 48px; }
+
+  .navbar {
+    inset-block-end: calc(6px + env(safe-area-inset-bottom));
+    width: min(480px, calc(100vw - 20px));
+    padding: 5px 10px;
+    border-radius: 22px;
+  }
+  .navbar__item span:not(.rail__pill) { display: none; }
+  .stage { padding-block-end: 96px; }
+
+  .libbar { inset-block-end: calc(64px + env(safe-area-inset-bottom)); padding-block: 6px; }
+  .discover__refresh { height: 42px; inset-block-end: calc(64px + env(safe-area-inset-bottom)); }
+  .bulk { inset-block-end: calc(64px + env(safe-area-inset-bottom)); }
+
+  .viewer__stage { padding: 44px 56px 52px; }
+  .viewer__frame img,
+  .viewer__frame video { max-height: calc(100dvh - 92px); }
+
+  /* Landscape Watch: media left, metadata right — a side-by-side recomposition
+     instead of a caption fighting the short viewport. */
+  .watch__slide {
+    grid-template-columns: minmax(0, 1fr) minmax(210px, 30vw);
+    place-items: stretch center;
+    padding-inline-end: 10px;
+  }
+  .watch__frame { width: auto; height: 100%; }
+  .watch__meta {
+    position: static;
+    align-self: end;
+    background: none;
+    padding: 0 18px calc(18px + env(safe-area-inset-bottom));
+  }
+  .watch__meta p { max-width: none; }
+  .watch__side { inset-block-end: 50%; translate: 0 50%; }
+
+  .search__panel { padding-top: calc(var(--topbar-h) + env(safe-area-inset-top)); }
+}

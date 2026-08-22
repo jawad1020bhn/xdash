@@ -1,0 +1,64 @@
+/* AUTO-GENERATED — do not edit.
+   Mirrored from dashboard/m3e/fonts.css by tools/sync-shared.mjs.
+   Edit the original and re-run:  node tools/sync-shared.mjs
+*/
+/* =============================================================================
+   M3 Expressive · Typeface
+
+   Roboto Flex, self-hosted, as a real variable font.
+
+   Why self-hosted instead of the Google Fonts CDN
+   -----------------------------------------------
+   The extension popup runs under the MV3 content security policy, which
+   forbids loading resources from a remote origin. If the dashboard pulled
+   Roboto Flex from fonts.googleapis.com and the popup could not, the two
+   surfaces of the same product would render in two different typefaces — the
+   exact incoherence this redesign exists to remove. Self-hosting also means
+   the dashboard works offline, which matters for a tool whose whole point is
+   keeping your data local.
+
+   Why the `opsz` axis subset
+   --------------------------
+   Roboto Flex ships 15 axes. Shipping them all costs ~240 kB per subset for
+   variation we would never use. We keep the two axes M3 Expressive actually
+   depends on:
+     · wght (100–1000) — the emphasized type scale is expressed as weight;
+     · opsz (8–144)    — optical sizing, so display text gets tighter apertures
+                         and body text stays open at small sizes. This is what
+                         makes a variable font worth using instead of two
+                         static weights.
+   That is 84 kB for latin + 59 kB for latin-ext, both cached after first paint.
+
+   `font-display: swap` — text is readable immediately in the fallback stack;
+   the swap is a typeface change, never invisible text.
+   ============================================================================= */
+
+@font-face {
+  font-family: "Roboto Flex";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 1000;
+  src: url("fonts/roboto-flex-latin-opsz-normal.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Roboto Flex";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 1000;
+  src: url("fonts/roboto-flex-latin-ext-opsz-normal.woff2") format("woff2-variations");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* Let the browser drive `opsz` from the rendered size. This is the whole point
+   of an optical-size axis: 57px display text and 11px labels are different
+   drawings of the same face, not one drawing scaled. */
+:root {
+  font-optical-sizing: auto;
+  font-synthesis-weight: none; /* never fake a weight the variable font has */
+}

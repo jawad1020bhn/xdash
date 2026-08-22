@@ -1,0 +1,1932 @@
+/* AUTO-GENERATED — do not edit.
+   Mirrored from dashboard/m3e/components.css by tools/sync-shared.mjs.
+   Edit the original and re-run:  node tools/sync-shared.mjs
+*/
+/* =============================================================================
+   M3E · Component Library
+   Material Design 3 Expressive — shared across the dashboard and the extension
+   -----------------------------------------------------------------------------
+   Rules of the system
+   -------------------
+   1. Components read only --md-sys-* tokens. No literal colours, no literal
+      radii, no literal durations below this line.
+   2. Every interactive surface owns a ::before state layer. Interaction is
+      communicated by compositing the content colour, never by colour swapping.
+   3. Spatial properties (transform, size, corner radius) animate on *spatial*
+      springs; colour and opacity animate on *effects* springs. Never mixed.
+   4. Focus is always visible: a 3px focus ring offset from the container,
+      drawn in `secondary` so it survives every scheme and contrast level.
+   5. Minimum hit area 48×48, enforced with pseudo-element expansion when the
+      visual box is smaller.
+   ============================================================================= */
+
+/* =============================================================================
+   0 · Reset & document
+   ============================================================================= */
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* `hidden` must win over component display rules. Without this, any component
+   whose base class sets `display` silently ignores the attribute — and the
+   attribute is how the app expresses "not applicable right now" to both the
+   renderer and assistive tech. */
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  background: var(--md-sys-color-surface);
+  color: var(--md-sys-color-on-surface);
+  font-family: var(--md-ref-typeface-plain);
+  font-size: var(--md-sys-typescale-body-medium-size);
+  line-height: var(--md-sys-typescale-body-medium-line-height);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  transition: background-color var(--md-sys-motion-spring-default-effects),
+              color var(--md-sys-motion-spring-default-effects);
+}
+
+/* Roboto Flex is variable: opt into optical sizing and grade where available. */
+@supports (font-variation-settings: "opsz" 14) {
+  body { font-variation-settings: "opsz" 14, "GRAD" 0; }
+}
+
+::selection {
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+}
+
+/* Scrollbars follow the surface ladder rather than the platform default. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--md-sys-color-outline-variant) transparent;
+}
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: var(--md-sys-color-outline-variant);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: var(--md-sys-shape-corner-full);
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--md-sys-color-outline); background-clip: content-box; }
+
+/* =============================================================================
+   1 · Typography utilities
+   .m3e-{role}-{size}  → baseline    .m3e-{role}-{size}--emphasized → expressive
+   ============================================================================= */
+.m3e-display-large,
+.m3e-display-medium,
+.m3e-display-small,
+.m3e-headline-large,
+.m3e-headline-medium,
+.m3e-headline-small,
+.m3e-title-large,
+.m3e-title-medium,
+.m3e-title-small,
+.m3e-body-large,
+.m3e-body-medium,
+.m3e-body-small,
+.m3e-label-large,
+.m3e-label-medium,
+.m3e-label-small { margin: 0; }
+
+.m3e-display-large {
+  font: var(--md-sys-typescale-display-large-weight) var(--md-sys-typescale-display-large-size) / var(--md-sys-typescale-display-large-line-height) var(--md-sys-typescale-display-large-font);
+  letter-spacing: var(--md-sys-typescale-display-large-tracking);
+}
+.m3e-display-medium {
+  font: var(--md-sys-typescale-display-medium-weight) var(--md-sys-typescale-display-medium-size) / var(--md-sys-typescale-display-medium-line-height) var(--md-sys-typescale-display-medium-font);
+  letter-spacing: var(--md-sys-typescale-display-medium-tracking);
+}
+.m3e-display-small {
+  font: var(--md-sys-typescale-display-small-weight) var(--md-sys-typescale-display-small-size) / var(--md-sys-typescale-display-small-line-height) var(--md-sys-typescale-display-small-font);
+  letter-spacing: var(--md-sys-typescale-display-small-tracking);
+}
+.m3e-headline-large {
+  font: var(--md-sys-typescale-headline-large-weight) var(--md-sys-typescale-headline-large-size) / var(--md-sys-typescale-headline-large-line-height) var(--md-sys-typescale-headline-large-font);
+}
+.m3e-headline-medium {
+  font: var(--md-sys-typescale-headline-medium-weight) var(--md-sys-typescale-headline-medium-size) / var(--md-sys-typescale-headline-medium-line-height) var(--md-sys-typescale-headline-medium-font);
+}
+.m3e-headline-small {
+  font: var(--md-sys-typescale-headline-small-weight) var(--md-sys-typescale-headline-small-size) / var(--md-sys-typescale-headline-small-line-height) var(--md-sys-typescale-headline-small-font);
+}
+.m3e-title-large {
+  font: var(--md-sys-typescale-title-large-weight) var(--md-sys-typescale-title-large-size) / var(--md-sys-typescale-title-large-line-height) var(--md-sys-typescale-title-large-font);
+}
+.m3e-title-medium {
+  font: var(--md-sys-typescale-title-medium-weight) var(--md-sys-typescale-title-medium-size) / var(--md-sys-typescale-title-medium-line-height) var(--md-sys-typescale-title-medium-font);
+  letter-spacing: var(--md-sys-typescale-title-medium-tracking);
+}
+.m3e-title-small {
+  font: var(--md-sys-typescale-title-small-weight) var(--md-sys-typescale-title-small-size) / var(--md-sys-typescale-title-small-line-height) var(--md-sys-typescale-title-small-font);
+  letter-spacing: var(--md-sys-typescale-title-small-tracking);
+}
+.m3e-body-large {
+  font: var(--md-sys-typescale-body-large-weight) var(--md-sys-typescale-body-large-size) / var(--md-sys-typescale-body-large-line-height) var(--md-sys-typescale-body-large-font);
+  letter-spacing: var(--md-sys-typescale-body-large-tracking);
+}
+.m3e-body-medium {
+  font: var(--md-sys-typescale-body-medium-weight) var(--md-sys-typescale-body-medium-size) / var(--md-sys-typescale-body-medium-line-height) var(--md-sys-typescale-body-medium-font);
+  letter-spacing: var(--md-sys-typescale-body-medium-tracking);
+}
+.m3e-body-small {
+  font: var(--md-sys-typescale-body-small-weight) var(--md-sys-typescale-body-small-size) / var(--md-sys-typescale-body-small-line-height) var(--md-sys-typescale-body-small-font);
+  letter-spacing: var(--md-sys-typescale-body-small-tracking);
+}
+.m3e-label-large {
+  font: var(--md-sys-typescale-label-large-weight) var(--md-sys-typescale-label-large-size) / var(--md-sys-typescale-label-large-line-height) var(--md-sys-typescale-label-large-font);
+  letter-spacing: var(--md-sys-typescale-label-large-tracking);
+}
+.m3e-label-medium {
+  font: var(--md-sys-typescale-label-medium-weight) var(--md-sys-typescale-label-medium-size) / var(--md-sys-typescale-label-medium-line-height) var(--md-sys-typescale-label-medium-font);
+  letter-spacing: var(--md-sys-typescale-label-medium-tracking);
+}
+.m3e-label-small {
+  font: var(--md-sys-typescale-label-small-weight) var(--md-sys-typescale-label-small-size) / var(--md-sys-typescale-label-small-line-height) var(--md-sys-typescale-label-small-font);
+  letter-spacing: var(--md-sys-typescale-label-small-tracking);
+}
+
+/* Emphasized variants — weight only; metrics stay locked to the baseline so
+   swapping emphasis never reflows a layout. */
+.m3e-display-large--emphasized { font-weight: var(--md-sys-typescale-display-large-emphasized-weight); }
+.m3e-display-medium--emphasized { font-weight: var(--md-sys-typescale-display-medium-emphasized-weight); }
+.m3e-display-small--emphasized { font-weight: var(--md-sys-typescale-display-small-emphasized-weight); }
+.m3e-headline-large--emphasized { font-weight: var(--md-sys-typescale-headline-large-emphasized-weight); }
+.m3e-headline-medium--emphasized { font-weight: var(--md-sys-typescale-headline-medium-emphasized-weight); }
+.m3e-headline-small--emphasized { font-weight: var(--md-sys-typescale-headline-small-emphasized-weight); }
+.m3e-title-large--emphasized { font-weight: var(--md-sys-typescale-title-large-emphasized-weight); }
+.m3e-title-medium--emphasized { font-weight: var(--md-sys-typescale-title-medium-emphasized-weight); }
+.m3e-title-small--emphasized { font-weight: var(--md-sys-typescale-title-small-emphasized-weight); }
+.m3e-body-large--emphasized { font-weight: var(--md-sys-typescale-body-large-emphasized-weight); }
+.m3e-body-medium--emphasized { font-weight: var(--md-sys-typescale-body-medium-emphasized-weight); }
+.m3e-label-large--emphasized { font-weight: var(--md-sys-typescale-label-large-emphasized-weight); }
+.m3e-label-medium--emphasized { font-weight: var(--md-sys-typescale-label-medium-emphasized-weight); }
+.m3e-label-small--emphasized { font-weight: var(--md-sys-typescale-label-small-emphasized-weight); }
+
+/* Numerals in data positions must not jitter as values tick. */
+.m3e-tabular { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+
+/* =============================================================================
+   2 · Accessibility primitives
+   ============================================================================= */
+.m3e-visually-hidden {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Skip link — first tab stop on every surface. */
+.m3e-skip-link {
+  position: fixed;
+  top: var(--md-sys-spacing-2);
+  left: var(--md-sys-spacing-2);
+  z-index: var(--md-sys-z-snackbar);
+  padding: var(--md-sys-spacing-3) var(--md-sys-spacing-5);
+  background: var(--md-sys-color-inverse-surface);
+  color: var(--md-sys-color-inverse-on-surface);
+  border-radius: var(--md-sys-shape-corner-full);
+  box-shadow: var(--md-sys-elevation-level3);
+  /* Park it well clear of the viewport. `-100%` alone leaves the elevation
+     shadow smeared across the top edge of the page, which reads as a rendering
+     glitch on small screens. Offsetting by the element's own top inset plus a
+     margin guarantees nothing shows until it is focused. */
+  transform: translateY(calc(-100% - var(--md-sys-spacing-2) - 16px));
+  transition: transform var(--md-sys-motion-spring-fast-spatial);
+  text-decoration: none;
+}
+.m3e-skip-link:focus-visible { transform: translateY(0); }
+
+/* Universal focus ring. Drawn on `secondary` so it never collides with the
+   `primary` fills it most often sits on top of. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--md-sys-color-secondary);
+  outline-offset: 2px;
+  border-radius: inherit;
+}
+
+/* =============================================================================
+   3 · State layer
+   Applied by any component carrying .m3e-state. The layer inherits the
+   component's border-radius and never intercepts pointer events.
+   ============================================================================= */
+.m3e-state { position: relative; isolation: isolate; overflow: hidden; }
+.m3e-state::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: currentColor;
+  opacity: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  transition: opacity var(--md-sys-motion-spring-fast-effects);
+}
+.m3e-state:hover::before { opacity: var(--md-sys-state-hover-state-layer-opacity); }
+.m3e-state:focus-visible::before { opacity: var(--md-sys-state-focus-state-layer-opacity); }
+.m3e-state:active::before { opacity: var(--md-sys-state-pressed-state-layer-opacity); }
+.m3e-state[aria-disabled="true"]::before,
+.m3e-state:disabled::before { opacity: 0; }
+
+/* Ripple — spawned by dashboard/m3e/interactions.js on pointerdown. */
+.m3e-ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.12;
+  pointer-events: none;
+  transform: scale(0);
+  animation: m3e-ripple-in var(--md-sys-motion-duration-slow-spatial) var(--md-sys-motion-easing-default-spatial) forwards;
+}
+@keyframes m3e-ripple-in {
+  to { transform: scale(1); opacity: 0; }
+}
+
+/* =============================================================================
+   4 · Buttons
+   M3 Expressive buttons: five color styles × five sizes, shape-morphing on
+   press (full → medium-increased), state layers, 48dp minimum target.
+   ============================================================================= */
+.m3e-button {
+  --_container: var(--md-sys-color-primary);
+  --_content: var(--md-sys-color-on-primary);
+  --_outline: transparent;
+  --_elevation: var(--md-sys-elevation-level0);
+  --_height: 40px;
+  --_padding: var(--md-sys-spacing-6);
+  --_gap: var(--md-sys-spacing-2);
+  --_radius: var(--md-sys-shape-corner-full);
+  --_pressed-radius: var(--md-sys-shape-corner-medium-increased);
+  --_type-size: var(--md-sys-typescale-label-large-size);
+  --_type-weight: var(--md-sys-typescale-label-large-weight);
+
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--_gap);
+  height: var(--_height);
+  min-width: var(--_height);
+  padding-inline: var(--_padding);
+  border: 1px solid var(--_outline);
+  border-radius: var(--_radius);
+  background: var(--_container);
+  color: var(--_content);
+  box-shadow: var(--_elevation);
+  font-family: var(--md-ref-typeface-plain);
+  font-size: var(--_type-size);
+  font-weight: var(--_type-weight);
+  line-height: var(--md-sys-typescale-label-large-line-height);
+  letter-spacing: var(--md-sys-typescale-label-large-tracking);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  text-decoration: none;
+  /* Spatial spring for shape/scale; effects spring for colour. Never mixed. */
+  transition:
+    border-radius var(--md-sys-motion-spring-fast-spatial),
+    transform var(--md-sys-motion-spring-fast-spatial),
+    box-shadow var(--md-sys-motion-spring-default-effects),
+    background-color var(--md-sys-motion-spring-fast-effects),
+    color var(--md-sys-motion-spring-fast-effects);
+}
+/* Expand the hit area to 48dp without inflating the visual box (WCAG 2.5.8). */
+.m3e-button::after {
+  content: "";
+  position: absolute;
+  inset: 50% 0 auto;
+  translate: 0 -50%;
+  height: max(var(--md-sys-touch-target-min), 100%);
+}
+/* The signature expressive press: the pill squares off, then springs back. */
+.m3e-button:active {
+  border-radius: var(--_pressed-radius);
+  transform: scale(0.97);
+}
+.m3e-button:disabled,
+.m3e-button[aria-disabled="true"] {
+  cursor: not-allowed;
+  box-shadow: none;
+  background: color-mix(in srgb, var(--md-sys-color-on-surface) 12%, transparent);
+  color: color-mix(in srgb, var(--md-sys-color-on-surface) 38%, transparent);
+  border-color: transparent;
+}
+/* Text buttons have no container when enabled, so they must not grow one when
+   disabled — otherwise the lowest-emphasis control in a view becomes the most
+   visually solid the moment it turns off. Per M3, only the label dims. */
+.m3e-button--text:disabled,
+.m3e-button--text[aria-disabled="true"] { background: transparent; }
+.m3e-button > svg { width: var(--md-sys-icon-size-small); height: var(--md-sys-icon-size-small); flex: none; }
+
+/* Color styles ------------------------------------------------------------- */
+.m3e-button--filled {
+  --_container: var(--md-sys-color-primary);
+  --_content: var(--md-sys-color-on-primary);
+}
+.m3e-button--tonal {
+  --_container: var(--md-sys-color-secondary-container);
+  --_content: var(--md-sys-color-on-secondary-container);
+}
+.m3e-button--elevated {
+  --_container: var(--md-sys-color-surface-container-low);
+  --_content: var(--md-sys-color-primary);
+  --_elevation: var(--md-sys-elevation-level1);
+}
+.m3e-button--elevated:hover { --_elevation: var(--md-sys-elevation-level2); }
+/* `outline`, not `outline-variant`. For an outlined button the border is the
+   only thing that says "this is a control", so it is a meaningful non-text
+   boundary and owes WCAG 1.4.11 a 3:1 ratio against the surface.
+   `outline-variant` is a decorative-divider role and measures ~1.6:1. */
+.m3e-button--outlined {
+  --_container: transparent;
+  --_content: var(--md-sys-color-on-surface-variant);
+  --_outline: var(--md-sys-color-outline);
+}
+.m3e-button--outlined:hover { --_outline: var(--md-sys-color-on-surface); }
+.m3e-button--text {
+  --_container: transparent;
+  --_content: var(--md-sys-color-primary);
+  --_padding: var(--md-sys-spacing-3);
+}
+.m3e-button--error {
+  --_container: var(--md-sys-color-error-container);
+  --_content: var(--md-sys-color-on-error-container);
+}
+.m3e-button--error-filled {
+  --_container: var(--md-sys-color-error);
+  --_content: var(--md-sys-color-on-error);
+}
+
+/* Sizes — M3 Expressive ships XS→XL. Each size has its own shape pairing. */
+.m3e-button--xs {
+  --_height: 32px;
+  --_padding: var(--md-sys-spacing-3);
+  --_type-size: var(--md-sys-typescale-label-medium-size);
+  --_pressed-radius: var(--md-sys-shape-corner-small);
+}
+.m3e-button--s { --_height: 40px; --_padding: var(--md-sys-spacing-4); }
+.m3e-button--m { --_height: 56px; --_padding: var(--md-sys-spacing-6); --_type-size: var(--md-sys-typescale-title-medium-size); }
+.m3e-button--l {
+  --_height: 96px;
+  --_padding: var(--md-sys-spacing-12);
+  --_type-size: var(--md-sys-typescale-headline-small-size);
+  --_gap: var(--md-sys-spacing-3);
+  --_pressed-radius: var(--md-sys-shape-corner-extra-large);
+}
+.m3e-button--l > svg { width: var(--md-sys-icon-size-large); height: var(--md-sys-icon-size-large); }
+.m3e-button--xl {
+  --_height: 136px;
+  --_padding: var(--md-sys-spacing-16);
+  --_type-size: var(--md-sys-typescale-headline-large-size);
+  --_pressed-radius: var(--md-sys-shape-corner-extra-large-increased);
+}
+.m3e-button--block { width: 100%; }
+
+/* Toggle buttons: selection is a shape change, not only a colour change, so
+   the state survives greyscale and low-vision viewing. */
+.m3e-button[aria-pressed="true"] {
+  --_container: var(--md-sys-color-primary);
+  --_content: var(--md-sys-color-on-primary);
+  --_radius: var(--md-sys-shape-corner-medium-increased);
+  --_pressed-radius: var(--md-sys-shape-corner-full);
+}
+
+/* =============================================================================
+   5 · Icon button
+   ============================================================================= */
+.m3e-icon-button {
+  --_container: transparent;
+  --_content: var(--md-sys-color-on-surface-variant);
+  --_size: 40px;
+  --_radius: var(--md-sys-shape-corner-full);
+
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: var(--_size);
+  height: var(--_size);
+  padding: 0;
+  border: none;
+  border-radius: var(--_radius);
+  background: var(--_container);
+  color: var(--_content);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    border-radius var(--md-sys-motion-spring-fast-spatial),
+    transform var(--md-sys-motion-spring-fast-spatial),
+    background-color var(--md-sys-motion-spring-fast-effects),
+    color var(--md-sys-motion-spring-fast-effects);
+}
+.m3e-icon-button::after {
+  content: "";
+  position: absolute;
+  inset: 50% 50% auto auto;
+  translate: 50% -50%;
+  width: max(var(--md-sys-touch-target-min), 100%);
+  height: max(var(--md-sys-touch-target-min), 100%);
+}
+.m3e-icon-button:active { border-radius: var(--md-sys-shape-corner-medium); transform: scale(0.92); }
+.m3e-icon-button > svg { width: var(--md-sys-icon-size-medium); height: var(--md-sys-icon-size-medium); }
+.m3e-icon-button--filled {
+  --_container: var(--md-sys-color-primary);
+  --_content: var(--md-sys-color-on-primary);
+}
+.m3e-icon-button--tonal {
+  --_container: var(--md-sys-color-secondary-container);
+  --_content: var(--md-sys-color-on-secondary-container);
+}
+.m3e-icon-button--outlined {
+  border: 1px solid var(--md-sys-color-outline);
+}
+.m3e-icon-button--s { --_size: 32px; }
+.m3e-icon-button--l { --_size: 56px; }
+.m3e-icon-button--l > svg { width: var(--md-sys-icon-size-large); height: var(--md-sys-icon-size-large); }
+.m3e-icon-button[aria-pressed="true"] {
+  --_container: var(--md-sys-color-primary);
+  --_content: var(--md-sys-color-on-primary);
+  border-radius: var(--md-sys-shape-corner-medium);
+}
+.m3e-icon-button:disabled {
+  color: color-mix(in srgb, var(--md-sys-color-on-surface) 38%, transparent);
+  cursor: not-allowed;
+}
+
+/* =============================================================================
+   6 · Button group  (new in M3 Expressive)
+   Adjacent buttons share a container; the pressed member widens and the
+   neighbours yield. Interior corners are small, exterior corners are full.
+   ============================================================================= */
+.m3e-button-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0;
+}
+.m3e-button-group > .m3e-button,
+.m3e-button-group > .m3e-icon-button {
+  --_radius: var(--md-sys-shape-corner-small);
+  border-radius: var(--_radius);
+  transition:
+    flex-grow var(--md-sys-motion-spring-default-spatial),
+    border-radius var(--md-sys-motion-spring-fast-spatial),
+    background-color var(--md-sys-motion-spring-fast-effects),
+    color var(--md-sys-motion-spring-fast-effects);
+}
+.m3e-button-group > :first-child {
+  border-start-start-radius: var(--md-sys-shape-corner-full);
+  border-end-start-radius: var(--md-sys-shape-corner-full);
+}
+.m3e-button-group > :last-child {
+  border-start-end-radius: var(--md-sys-shape-corner-full);
+  border-end-end-radius: var(--md-sys-shape-corner-full);
+}
+.m3e-button-group > :only-child { border-radius: var(--md-sys-shape-corner-full); }
+/* Pressing a member squashes it and lets its neighbours expand — the
+   "connected group" behaviour that defines the expressive button group. */
+.m3e-button-group > :active { transform: scaleX(0.94); }
+
+/* Connected/segmented selector built on the same primitive. */
+.m3e-segmented {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: var(--md-sys-color-surface-container-high);
+}
+.m3e-segmented__item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--md-sys-spacing-2);
+  height: 40px;
+  padding-inline: var(--md-sys-spacing-4);
+  border: none;
+  border-radius: var(--md-sys-shape-corner-small);
+  background: transparent;
+  color: var(--md-sys-color-on-surface-variant);
+  font: var(--md-sys-typescale-label-large-weight) var(--md-sys-typescale-label-large-size) / 1 var(--md-ref-typeface-plain);
+  letter-spacing: var(--md-sys-typescale-label-large-tracking);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    border-radius var(--md-sys-motion-spring-fast-spatial),
+    transform var(--md-sys-motion-spring-fast-spatial),
+    background-color var(--md-sys-motion-spring-default-effects),
+    color var(--md-sys-motion-spring-default-effects);
+}
+.m3e-segmented__item:first-child { border-start-start-radius: var(--md-sys-shape-corner-full); border-end-start-radius: var(--md-sys-shape-corner-full); }
+.m3e-segmented__item:last-child { border-start-end-radius: var(--md-sys-shape-corner-full); border-end-end-radius: var(--md-sys-shape-corner-full); }
+.m3e-segmented__item[aria-selected="true"],
+.m3e-segmented__item[aria-pressed="true"] {
+  background: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+  font-weight: var(--md-sys-typescale-label-large-emphasized-weight);
+}
+.m3e-segmented__item:active { transform: scaleX(0.94); }
+.m3e-segmented__item > svg { width: 18px; height: 18px; }
+
+/* =============================================================================
+   7 · Split button  (new in M3 Expressive)
+   A primary action plus a trailing menu affordance whose chevron rotates and
+   whose corner morphs when the menu opens.
+   ============================================================================= */
+.m3e-split-button { display: inline-flex; align-items: center; gap: 2px; }
+.m3e-split-button__lead {
+  border-start-end-radius: var(--md-sys-shape-corner-small);
+  border-end-end-radius: var(--md-sys-shape-corner-small);
+}
+.m3e-split-button__trail {
+  border-start-start-radius: var(--md-sys-shape-corner-small);
+  border-end-start-radius: var(--md-sys-shape-corner-small);
+  padding-inline: var(--md-sys-spacing-3);
+  min-width: 40px;
+}
+.m3e-split-button__trail > svg {
+  transition: rotate var(--md-sys-motion-spring-default-spatial);
+}
+.m3e-split-button__trail[aria-expanded="true"] { border-radius: var(--md-sys-shape-corner-medium); }
+.m3e-split-button__trail[aria-expanded="true"] > svg { rotate: 180deg; }
+
+/* =============================================================================
+   8 · FAB & FAB menu  (updated / new in M3 Expressive)
+   ============================================================================= */
+.m3e-fab {
+  --_container: var(--md-sys-color-primary-container);
+  --_content: var(--md-sys-color-on-primary-container);
+  --_size: 56px;
+  --_radius: var(--md-sys-shape-corner-large);
+
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--md-sys-spacing-3);
+  min-width: var(--_size);
+  height: var(--_size);
+  padding-inline: var(--md-sys-spacing-4);
+  border: none;
+  border-radius: var(--_radius);
+  background: var(--_container);
+  color: var(--_content);
+  box-shadow: var(--md-sys-elevation-level3);
+  font: var(--md-sys-typescale-title-medium-weight) var(--md-sys-typescale-title-medium-size) / 1 var(--md-ref-typeface-plain);
+  cursor: pointer;
+  transition:
+    border-radius var(--md-sys-motion-spring-fast-spatial),
+    transform var(--md-sys-motion-spring-default-spatial),
+    box-shadow var(--md-sys-motion-spring-default-effects),
+    background-color var(--md-sys-motion-spring-default-effects);
+}
+.m3e-fab:hover { box-shadow: var(--md-sys-elevation-level4); transform: translateY(-1px); }
+.m3e-fab:active { border-radius: var(--md-sys-shape-corner-large-increased); transform: scale(0.95); }
+.m3e-fab > svg { width: var(--md-sys-icon-size-medium); height: var(--md-sys-icon-size-medium); flex: none; }
+.m3e-fab--small { --_size: 40px; --_radius: var(--md-sys-shape-corner-medium); padding-inline: var(--md-sys-spacing-2); }
+.m3e-fab--large { --_size: 96px; --_radius: var(--md-sys-shape-corner-extra-large); }
+.m3e-fab--large > svg { width: 36px; height: 36px; }
+.m3e-fab--primary { --_container: var(--md-sys-color-primary); --_content: var(--md-sys-color-on-primary); }
+.m3e-fab--secondary { --_container: var(--md-sys-color-secondary-container); --_content: var(--md-sys-color-on-secondary-container); }
+.m3e-fab--tertiary { --_container: var(--md-sys-color-tertiary-container); --_content: var(--md-sys-color-on-tertiary-container); }
+/* Extended FAB collapses to icon-only when the user scrolls down. */
+.m3e-fab__label {
+  max-width: 12rem;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: max-width var(--md-sys-motion-spring-default-spatial),
+              opacity var(--md-sys-motion-spring-fast-effects);
+}
+.m3e-fab[data-collapsed="true"] { padding-inline: 0; }
+.m3e-fab[data-collapsed="true"] .m3e-fab__label { max-width: 0; opacity: 0; }
+
+/* FAB menu — replaces the speed dial. Items stagger in on spatial springs. */
+.m3e-fab-menu {
+  position: fixed;
+  z-index: var(--md-sys-z-modal);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--md-sys-spacing-2);
+}
+.m3e-fab-menu__list {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--md-sys-spacing-2);
+  margin: 0 0 var(--md-sys-spacing-2);
+  padding: 0;
+  list-style: none;
+}
+.m3e-fab-menu__list[hidden] { display: none; }
+.m3e-fab-menu__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--md-sys-spacing-3);
+  height: 56px;
+  padding-inline: var(--md-sys-spacing-5);
+  border: none;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+  box-shadow: var(--md-sys-elevation-level2);
+  font: var(--md-sys-typescale-title-medium-weight) var(--md-sys-typescale-title-medium-size) / 1 var(--md-ref-typeface-plain);
+  cursor: pointer;
+  white-space: nowrap;
+  animation: m3e-fab-menu-in var(--md-sys-motion-duration-default-spatial) var(--md-sys-motion-easing-default-spatial) backwards;
+  animation-delay: calc(var(--m3e-index, 0) * 40ms);
+}
+.m3e-fab-menu__item:active { border-radius: var(--md-sys-shape-corner-large); }
+.m3e-fab-menu__item > svg { width: var(--md-sys-icon-size-medium); height: var(--md-sys-icon-size-medium); }
+@keyframes m3e-fab-menu-in {
+  from { opacity: 0; transform: translateY(16px) scale(0.85); }
+  to { opacity: 1; transform: none; }
+}
+/* The trigger's icon rotates 45° so "+" becomes "×" — state without words. */
+.m3e-fab[aria-expanded="true"] > svg { rotate: 45deg; }
+.m3e-fab > svg { transition: rotate var(--md-sys-motion-spring-default-spatial); }
+
+/* =============================================================================
+   9 · Toolbars  (new in M3 Expressive — replaces the bottom app bar)
+   ============================================================================= */
+.m3e-toolbar {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--md-sys-spacing-1);
+  height: 64px;
+  padding-inline: var(--md-sys-spacing-2);
+  border-radius: var(--md-sys-shape-corner-full);
+  background: var(--md-sys-color-surface-container);
+  color: var(--md-sys-color-on-surface-variant);
+}
+/* Floating toolbar: detached, elevated, free to sit anywhere over content. */
+.m3e-toolbar--floating {
+  position: fixed;
+  z-index: var(--md-sys-z-toolbar);
+  box-shadow: var(--md-sys-elevation-level3);
+  background: var(--md-sys-color-surface-container-high);
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  transition: transform var(--md-sys-motion-spring-default-spatial),
+              opacity var(--md-sys-motion-spring-default-effects);
+}
+.m3e-toolbar--vibrant {
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+}
+.m3e-toolbar[data-hidden="true"] {
+  transform: translateY(calc(100% + var(--md-sys-spacing-8)));
+  opacity: 0;
+  pointer-events: none;
+}
+.m3e-toolbar__divider {
+  width: 1px;
+  height: 24px;
+  margin-inline: var(--md-sys-spacing-1);
+  background: var(--md-sys-color-outline-variant);
+}
+
+/* =============================================================================
+   10 · App bar
+   ============================================================================= */
+.m3e-app-bar {
+  position: sticky;
+  top: 0;
+  z-index: var(--md-sys-z-sticky);
+  display: flex;
+  align-items: center;
+  gap: var(--md-sys-spacing-4);
+  min-height: 64px;
+  padding-inline: var(--md-sys-margin-compact);
+  background: var(--md-sys-color-surface);
+  color: var(--md-sys-color-on-surface);
+  transition: background-color var(--md-sys-motion-spring-default-effects),
+              box-shadow var(--md-sys-motion-spring-default-effects);
+}
+/* On scroll the bar lifts to surface-container — the M3 "on-scroll" behaviour
+   that replaces M2's shadow-only elevation. */
+.m3e-app-bar[data-scrolled="true"] {
+  background: var(--md-sys-color-surface-container);
+  box-shadow: var(--md-sys-elevation-level2);
+}
+@supports (backdrop-filter: blur(1px)) {
+  .m3e-app-bar[data-scrolled="true"] {
+    background: color-mix(in srgb, var(--md-sys-color-surface-container) 82%, transparent);
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+  }
+}
+
+/* =============================================================================
+   11 · Cards
+   ============================================================================= */
+.m3e-card {
+  --_container: var(--md-sys-color-surface-container-low);
+  --_radius: var(--md-sys-shape-corner-large-increased);
+  --_elevation: var(--md-sys-elevation-level0);
+
+  position: relative;
+  display: block;
+  border: none;
+  border-radius: var(--_radius);
+  background: var(--_container);
+  color: var(--md-sys-color-on-surface);
+  box-shadow: var(--_elevation);
+  text-align: start;
+  transition:
+    border-radius var(--md-sys-motion-spring-fast-spatial),
+    transform var(--md-sys-motion-spring-fast-spatial),
+    box-shadow var(--md-sys-motion-spring-default-effects),
+    background-color var(--md-sys-motion-spring-default-effects);
+}
+.m3e-card--filled { --_container: var(--md-sys-color-surface-container-highest); }
+.m3e-card--elevated { --_container: var(--md-sys-color-surface-container-low); --_elevation: var(--md-sys-elevation-level1); }
+.m3e-card--outlined { --_container: var(--md-sys-color-surface); border: 1px solid var(--md-sys-color-outline); }
+.m3e-card--interactive { cursor: pointer; }
+.m3e-card--interactive:hover { --_elevation: var(--md-sys-elevation-level2); transform: translateY(-2px); }
+.m3e-card--interactive:active {
+  transform: translateY(0) scale(0.995);
+  border-radius: var(--md-sys-shape-corner-extra-large);
+}
+
+/* =============================================================================
+   12 · Chips
+   ============================================================================= */
+.m3e-chip {
+  --_container: transparent;
+  --_content: var(--md-sys-color-on-surface-variant);
+  /* Meaningful boundary → `outline` (3:1), not the decorative variant. */
+  --_outline: var(--md-sys-color-outline);
+
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--md-sys-spacing-2);
+  height: 40px;
+  padding-inline: var(--md-sys-spacing-4);
+  border: 1px solid var(--_outline);
+  border-radius: var(--md-sys-shape-corner-small);
+  background: var(--_container);
+  color: var(--_content);
+  font: var(--md-sys-typescale-label-large-weight) var(--md-sys-typescale-label-large-size) / 1 var(--md-ref-typeface-plain);
+  letter-spacing: var(--md-sys-typescale-label-large-tracking);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    border-radius var(--md-sys-motion-spring-fast-spatial),
+    transform var(--md-sys-motion-spring-fast-spatial),
+    background-color var(--md-sys-motion-spring-fast-effects),
+    border-color var(--md-sys-motion-spring-fast-effects),
+    color var(--md-sys-motion-spring-fast-effects);
+}
+.m3e-chip::after {
+  content: "";
+  position: absolute;
+  inset: 50% 0 auto;
+  translate: 0 -50%;
+  height: var(--md-sys-touch-target-min);
+}
+.m3e-chip:active { transform: scale(0.95); border-radius: var(--md-sys-shape-corner-extra-small); }
+.m3e-chip > svg { width: 18px; height: 18px; flex: none; }
+.m3e-chip--assist { --_container: var(--md-sys-color-surface-container-low); }
+.m3e-chip--suggestion { --_outline: transparent; --_container: var(--md-sys-color-surface-container-high); }
+.m3e-chip[aria-pressed="true"],
+.m3e-chip[aria-selected="true"],
+.m3e-chip.is-selected {
+  --_container: var(--md-sys-color-secondary-container);
+  --_content: var(--md-sys-color-on-secondary-container);
+  --_outline: transparent;
+  border-radius: var(--md-sys-shape-corner-medium);
+  font-weight: var(--md-sys-typescale-label-large-emphasized-weight);
+}
+.m3e-chip__badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding-inline: 6px;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+  font-size: var(--md-sys-typescale-label-small-size);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+/* Input chip (a removable token, e.g. a tag) */
+.m3e-chip--input { padding-inline-end: var(--md-sys-spacing-1); }
+.m3e-chip__remove {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity var(--md-sys-motion-spring-fast-effects),
+              transform var(--md-sys-motion-spring-fast-spatial);
+}
+.m3e-chip__remove:hover { opacity: 1; transform: rotate(90deg); }
+
+/* =============================================================================
+   13 · Search
+   ============================================================================= */
+.m3e-search {
+  display: flex;
+  align-items: center;
+  gap: var(--md-sys-spacing-3);
+  height: 56px;
+  padding-inline: var(--md-sys-spacing-4);
+  border-radius: var(--md-sys-shape-corner-full);
+  background: var(--md-sys-color-surface-container-high);
+  color: var(--md-sys-color-on-surface);
+  transition: background-color var(--md-sys-motion-spring-fast-effects),
+              box-shadow var(--md-sys-motion-spring-default-effects),
+              border-radius var(--md-sys-motion-spring-fast-spatial);
+}
+.m3e-search:focus-within {
+  background: var(--md-sys-color-surface-container-highest);
+  box-shadow: var(--md-sys-elevation-level2);
+  outline: 3px solid var(--md-sys-color-secondary);
+  outline-offset: 2px;
+}
+.m3e-search__icon { flex: none; width: var(--md-sys-icon-size-medium); height: var(--md-sys-icon-size-medium); color: var(--md-sys-color-on-surface-variant); }
+.m3e-search__input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font: var(--md-sys-typescale-body-large-weight) var(--md-sys-typescale-body-large-size) / 1.5 var(--md-ref-typeface-plain);
+}
+.m3e-search__input::placeholder { color: var(--md-sys-color-on-surface-variant); opacity: 1; }
+.m3e-search__input::-webkit-search-cancel-button { display: none; }
+.m3e-search__kbd {
+  flex: none;
+  padding: 3px 8px;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-sys-shape-corner-extra-small);
+  color: var(--md-sys-color-on-surface-variant);
+  font-family: var(--md-ref-typeface-mono);
+  font-size: var(--md-sys-typescale-label-small-size);
+}
+
+/* =============================================================================
+   14 · Text fields (outlined)
+   ============================================================================= */
+.m3e-field { display: flex; flex-direction: column; gap: var(--md-sys-spacing-2); }
+.m3e-field__label {
+  color: var(--md-sys-color-on-surface-variant);
+  font: var(--md-sys-typescale-label-large-weight) var(--md-sys-typescale-label-large-size) / 1.2 var(--md-ref-typeface-plain);
+}
+.m3e-field__input,
+.m3e-field__textarea,
+.m3e-field select {
+  width: 100%;
+  min-height: 56px;
+  padding: var(--md-sys-spacing-4);
+  border: 1px solid var(--md-sys-color-outline);
+  border-radius: var(--md-sys-shape-corner-medium-increased);
+  background: var(--md-sys-color-surface-container-low);
+  color: var(--md-sys-color-on-surface);
+  font: var(--md-sys-typescale-body-large-weight) var(--md-sys-typescale-body-large-size) / 1.5 var(--md-ref-typeface-plain);
+  transition: border-color var(--md-sys-motion-spring-fast-effects),
+              background-color var(--md-sys-motion-spring-fast-effects);
+}
+.m3e-field__textarea { min-height: 108px; resize: vertical; }
+.m3e-field__input:hover,
+.m3e-field__textarea:hover { border-color: var(--md-sys-color-outline); }
+.m3e-field__input:focus-visible,
+.m3e-field__textarea:focus-visible {
+  border-color: var(--md-sys-color-primary);
+  outline: 3px solid var(--md-sys-color-secondary);
+  outline-offset: 1px;
+}
+.m3e-field__support {
+  color: var(--md-sys-color-on-surface-variant);
+  font: var(--md-sys-typescale-body-small-weight) var(--md-sys-typescale-body-small-size) / 1.3 var(--md-ref-typeface-plain);
+}
+.m3e-field--error .m3e-field__input { border-color: var(--md-sys-color-error); }
+.m3e-field--error .m3e-field__support { color: var(--md-sys-color-error); }
+
+/* =============================================================================
+   15 · Switch
+   ============================================================================= */
+.m3e-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  width: 52px;
+  height: 32px;
+  padding: 0;
+  border: 2px solid var(--md-sys-color-outline);
+  border-radius: var(--md-sys-shape-corner-full);
+  background: var(--md-sys-color-surface-container-highest);
+  cursor: pointer;
+  transition: background-color var(--md-sys-motion-spring-default-effects),
+              border-color var(--md-sys-motion-spring-default-effects);
+}
+.m3e-switch__handle {
+  position: absolute;
+  left: 4px;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: var(--md-sys-color-outline);
+  color: var(--md-sys-color-surface-container-highest);
+  /* Spatial spring: the handle overshoots slightly then settles. */
+  transition: translate var(--md-sys-motion-spring-fast-spatial),
+              width var(--md-sys-motion-spring-fast-spatial),
+              height var(--md-sys-motion-spring-fast-spatial),
+              background-color var(--md-sys-motion-spring-fast-effects);
+}
+.m3e-switch__handle > svg { width: 14px; height: 14px; opacity: 0; transition: opacity var(--md-sys-motion-spring-fast-effects); }
+.m3e-switch[aria-checked="true"] {
+  background: var(--md-sys-color-primary);
+  border-color: var(--md-sys-color-primary);
+}
+.m3e-switch[aria-checked="true"] .m3e-switch__handle {
+  translate: 20px 0;
+  width: 24px;
+  height: 24px;
+  left: 2px;
+  background: var(--md-sys-color-on-primary);
+  color: var(--md-sys-color-primary);
+}
+.m3e-switch[aria-checked="true"] .m3e-switch__handle > svg { opacity: 1; }
+/* Pressing stretches the handle — the expressive "squish" affordance. */
+.m3e-switch:active .m3e-switch__handle { width: 28px; }
+
+.m3e-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--md-sys-spacing-4);
+  min-height: var(--md-sys-touch-target-min);
+  padding: var(--md-sys-spacing-3) var(--md-sys-spacing-4);
+  border-radius: var(--md-sys-shape-corner-medium-increased);
+}
+.m3e-switch-row:hover { background: var(--md-sys-color-surface-container); }
+.m3e-switch-row__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.m3e-switch-row__title {
+  color: var(--md-sys-color-on-surface);
+  font: var(--md-sys-typescale-body-large-weight) var(--md-sys-typescale-body-large-size) / 1.4 var(--md-ref-typeface-plain);
+}
+.m3e-switch-row__support {
+  color: var(--md-sys-color-on-surface-variant);
+  font: var(--md-sys-typescale-body-small-weight) var(--md-sys-typescale-body-small-size) / 1.3 var(--md-ref-typeface-plain);
+}
+
+/* =============================================================================
+   16 · Progress & loading  (updated / new in M3 Expressive)
+   The expressive progress indicator is a *wave*: an active-indicator track
+   with rounded caps and a visible gap to the stop indicator.
+   ============================================================================= */
+.m3e-progress {
+  position: relative;
+  width: 100%;
+  height: 4px;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: var(--md-sys-color-secondary-container);
+  overflow: hidden;
+}
+.m3e-progress__indicator {
+  height: 100%;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: var(--md-sys-color-primary);
+  transition: width var(--md-sys-motion-spring-default-spatial);
+}
+.m3e-progress--indeterminate .m3e-progress__indicator {
+  width: 40%;
+  animation: m3e-progress-slide 1.6s var(--md-sys-motion-easing-default-spatial) infinite;
+}
+@keyframes m3e-progress-slide {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(310%); }
+}
+/* Wavy indicator for long-running work: expressiveness that also encodes
+   "still alive" without a spinner.
+
+   Drawn with an SVG <pattern> tiled at its true 32×10 size, NOT with a
+   stretched viewBox and NOT with a CSS mask. Two reasons, both learned the
+   hard way:
+     · `preserveAspectRatio="none"` on a wide viewBox scales x and y unevenly,
+       which distorts a round-capped stroke into ellipses;
+     · a repeating `mask-image` rasterises at the wrong scale inside a
+       composited layer (any ancestor with a transition/animation is enough),
+       collapsing the wave into blobs — with the computed styles still reading
+       back as correct, so it does not show up in devtools.
+   A <pattern> is resolved by the SVG renderer at paint time and survives both.
+
+   Required markup (see extension/popup.html):
+     <div class="m3e-progress m3e-progress--wavy" role="progressbar" …>
+       <svg class="m3e-progress__wave" aria-hidden="true">
+         <defs><pattern id="m3e-wave" …><path …/></pattern></defs>
+         <rect class="m3e-progress__wave-fill" fill="url(#m3e-wave)"/>
+       </svg>
+     </div>
+   The stroke uses `currentColor`, so the wave inherits whatever container role
+   it sits on (on-primary-container inside a primary card, and so on). */
+.m3e-progress--wavy {
+  height: 10px;
+  background: transparent;
+  overflow: hidden;
+}
+.m3e-progress--wavy .m3e-progress__wave {
+  display: block;
+  width: 100%;
+  height: 10px;
+}
+/* The rect is one period wider than the track and starts one period early, so
+   translating it by exactly 32px loops seamlessly. */
+.m3e-progress--wavy .m3e-progress__wave-fill {
+  animation: m3e-wave-scroll 1.1s linear infinite;
+}
+@keyframes m3e-wave-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(32px); }
+}
+/* Reduced motion: hold a static wave. The shape still reads as "working",
+   and the status word carries the meaning regardless. */
+[data-motion="reduced"] .m3e-progress--wavy .m3e-progress__wave-fill { animation: none; }
+
+/* Loading indicator — the M3 Expressive shape-morphing pull-to-refresh /
+   sub-5-second loader. Replaces the indeterminate circular spinner. */
+.m3e-loading {
+  display: inline-block;
+  width: 40px;
+  height: 40px;
+  background: var(--md-sys-color-primary);
+  animation:
+    m3e-loading-morph 1.8s var(--md-sys-motion-easing-default-spatial) infinite,
+    m3e-loading-spin 3s linear infinite;
+}
+@keyframes m3e-loading-morph {
+  0%,
+  100% { border-radius: 42% 58% 60% 40% / 50% 44% 56% 50%; }
+  25% { border-radius: 60% 40% 42% 58% / 56% 60% 40% 44%; }
+  50% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; }
+  75% { border-radius: 40% 60% 58% 42% / 44% 40% 60% 56%; }
+}
+@keyframes m3e-loading-spin { to { rotate: 360deg; } }
+
+/* Skeletons — placeholder shimmer for chunked list rendering. */
+.m3e-skeleton {
+  border-radius: var(--md-sys-shape-corner-small);
+  background: linear-gradient(
+    100deg,
+    var(--md-sys-color-surface-container) 30%,
+    var(--md-sys-color-surface-container-high) 50%,
+    var(--md-sys-color-surface-container) 70%
+  );
+  background-size: 220% 100%;
+  animation: m3e-skeleton-sweep 1.6s ease-in-out infinite;
+}
+@keyframes m3e-skeleton-sweep {
+  to { background-position: -220% 0; }
+}
+
+/* =============================================================================
+   17 · Badge
+   ============================================================================= */
+.m3e-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding-inline: var(--md-sys-spacing-2);
+  border-radius: var(--md-sys-shape-corner-small);
+  background: var(--md-sys-color-surface-container-highest);
+  color: var(--md-sys-color-on-surface-variant);
+  font: 700 var(--md-sys-typescale-label-small-size) / 1 var(--md-ref-typeface-plain);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.m3e-badge--primary { background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); }
+.m3e-badge--secondary { background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); }
+.m3e-badge--tertiary { background: var(--md-sys-color-tertiary-container); color: var(--md-sys-color-on-tertiary-container); }
+.m3e-badge--error { background: var(--md-sys-color-error-container); color: var(--md-sys-color-on-error-container); }
+.m3e-badge--outline { background: transparent; border: 1px solid var(--md-sys-color-outline); }
+
+/* =============================================================================
+   18 · Navigation rail  (updated in M3 Expressive)
+   ============================================================================= */
+.m3e-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--md-sys-spacing-2);
+  width: 96px;
+  padding-block: var(--md-sys-spacing-4);
+  background: var(--md-sys-color-surface);
+}
+.m3e-rail__item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--md-sys-spacing-1);
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--md-sys-color-on-surface-variant);
+  font: var(--md-sys-typescale-label-medium-weight) var(--md-sys-typescale-label-medium-size) / 1.2 var(--md-ref-typeface-plain);
+  cursor: pointer;
+}
+.m3e-rail__indicator {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 32px;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: transparent;
+  transition: background-color var(--md-sys-motion-spring-default-effects),
+              width var(--md-sys-motion-spring-fast-spatial),
+              border-radius var(--md-sys-motion-spring-fast-spatial);
+}
+.m3e-rail__item[aria-selected="true"] { color: var(--md-sys-color-on-secondary-container); font-weight: 700; }
+.m3e-rail__item[aria-selected="true"] .m3e-rail__indicator {
+  background: var(--md-sys-color-secondary-container);
+}
+.m3e-rail__item:hover .m3e-rail__indicator { background: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent); }
+.m3e-rail__item:active .m3e-rail__indicator { width: 48px; border-radius: var(--md-sys-shape-corner-medium); }
+.m3e-rail__item > svg,
+.m3e-rail__indicator > svg { width: var(--md-sys-icon-size-medium); height: var(--md-sys-icon-size-medium); }
+
+/* =============================================================================
+   19 · Navigation bar (compact window class)
+   ============================================================================= */
+.m3e-nav-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  height: 80px;
+  padding-inline: var(--md-sys-spacing-2);
+  background: var(--md-sys-color-surface-container);
+}
+.m3e-nav-bar__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--md-sys-spacing-1);
+  flex: 1;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--md-sys-color-on-surface-variant);
+  font: var(--md-sys-typescale-label-medium-weight) var(--md-sys-typescale-label-medium-size) / 1.2 var(--md-ref-typeface-plain);
+  cursor: pointer;
+}
+.m3e-nav-bar__item[aria-selected="true"] { color: var(--md-sys-color-on-secondary-container); font-weight: 700; }
+.m3e-nav-bar__item[aria-selected="true"] .m3e-rail__indicator { background: var(--md-sys-color-secondary-container); }
+
+/* =============================================================================
+   20 · Menu  (M3 Expressive "vertical menu": rounded, inset dividers, gaps)
+   ============================================================================= */
+.m3e-menu {
+  position: absolute;
+  z-index: var(--md-sys-z-modal);
+  min-width: 224px;
+  /* Grew from a fixed 480px cap once the sort menu reached 17 grouped
+     options: on a tall window that cap wasted most of the screen and forced
+     scrolling through content that would otherwise have fit. `openMenu` also
+     flips the menu above its trigger when it would overflow the bottom. */
+  max-height: min(78vh, 640px);
+  padding: var(--md-sys-spacing-2);
+  border-radius: var(--md-sys-shape-corner-medium-increased);
+  background: var(--md-sys-color-surface-container);
+  box-shadow: var(--md-sys-elevation-level3);
+  overflow-y: auto;
+  transform-origin: top;
+  animation: m3e-menu-in var(--md-sys-motion-duration-fast-spatial) var(--md-sys-motion-easing-fast-spatial);
+}
+@keyframes m3e-menu-in {
+  from { opacity: 0; transform: scaleY(0.85) translateY(-8px); }
+  to { opacity: 1; transform: none; }
+}
+.m3e-menu__item {
+  display: flex;
+  align-items: center;
+  gap: var(--md-sys-spacing-3);
+  width: 100%;
+  min-height: 48px;
+  padding: var(--md-sys-spacing-2) var(--md-sys-spacing-3);
+  border: none;
+  border-radius: var(--md-sys-shape-corner-small);
+  background: transparent;
+  color: var(--md-sys-color-on-surface);
+  font: var(--md-sys-typescale-body-large-weight) var(--md-sys-typescale-body-large-size) / 1.3 var(--md-ref-typeface-plain);
+  text-align: start;
+  cursor: pointer;
+  transition: background-color var(--md-sys-motion-spring-fast-effects),
+              border-radius var(--md-sys-motion-spring-fast-spatial);
+}
+.m3e-menu__item:hover { background: var(--md-sys-color-surface-container-high); }
+/* Two-line items: label above, supporting text below. Without this the two
+   spans render inline and read as one run-on string. */
+.m3e-menu__item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  text-align: start;
+}
+.m3e-menu__item-text > .m3e-body-small { color: var(--md-sys-color-on-surface-variant); }
+.m3e-menu__item[aria-selected="true"] .m3e-menu__item-text > .m3e-body-small {
+  color: inherit;
+  opacity: 0.8;
+}
+.m3e-menu__item[aria-selected="true"] {
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+  border-radius: var(--md-sys-shape-corner-medium);
+  font-weight: 600;
+}
+/* Inset divider — M3 Expressive menus no longer span the full width. */
+.m3e-menu__divider {
+  height: 1px;
+  margin: var(--md-sys-spacing-2) var(--md-sys-spacing-3);
+  background: var(--md-sys-color-outline-variant);
+  border: none;
+}
+/* "Gap" grouping, the Expressive alternative to a divider. */
+.m3e-menu__gap { height: var(--md-sys-spacing-2); }
+
+/* =============================================================================
+   21 · List items
+   ============================================================================= */
+.m3e-list { display: flex; flex-direction: column; gap: var(--md-sys-spacing-1); margin: 0; padding: 0; list-style: none; }
+.m3e-list-item {
+  display: flex;
+  align-items: center;
+  gap: var(--md-sys-spacing-4);
+  width: 100%;
+  min-height: 56px;
+  padding: var(--md-sys-spacing-3) var(--md-sys-spacing-4);
+  border: none;
+  border-radius: var(--md-sys-shape-corner-medium-increased);
+  background: transparent;
+  color: var(--md-sys-color-on-surface);
+  text-align: start;
+  cursor: pointer;
+  transition: background-color var(--md-sys-motion-spring-fast-effects),
+              border-radius var(--md-sys-motion-spring-fast-spatial);
+}
+.m3e-list-item:hover { background: var(--md-sys-color-surface-container); }
+.m3e-list-item:active { border-radius: var(--md-sys-shape-corner-large-increased); }
+.m3e-list-item[aria-selected="true"] {
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+}
+.m3e-list-item__leading {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: var(--md-sys-color-surface-container-high);
+  color: var(--md-sys-color-on-surface-variant);
+}
+.m3e-list-item__body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.m3e-list-item__headline {
+  font: var(--md-sys-typescale-body-large-weight) var(--md-sys-typescale-body-large-size) / 1.4 var(--md-ref-typeface-plain);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.m3e-list-item__support {
+  color: var(--md-sys-color-on-surface-variant);
+  font: var(--md-sys-typescale-body-medium-weight) var(--md-sys-typescale-body-medium-size) / 1.35 var(--md-ref-typeface-plain);
+}
+.m3e-list-item__trailing { flex: none; color: var(--md-sys-color-on-surface-variant); }
+
+/* =============================================================================
+   22 · Dialog
+   ============================================================================= */
+.m3e-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--md-sys-z-scrim);
+  background: var(--md-sys-color-scrim-overlay);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--md-sys-motion-spring-default-effects);
+}
+.m3e-scrim[data-open="true"] { opacity: 1; pointer-events: auto; }
+@supports (backdrop-filter: blur(1px)) {
+  .m3e-scrim[data-open="true"] { backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+}
+
+.m3e-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: var(--md-sys-z-modal);
+  display: flex;
+  flex-direction: column;
+  width: min(560px, calc(100vw - var(--md-sys-spacing-8)));
+  max-height: min(80vh, 720px);
+  border-radius: var(--md-sys-shape-corner-extra-large-increased);
+  background: var(--md-sys-color-surface-container-high);
+  color: var(--md-sys-color-on-surface);
+  box-shadow: var(--md-sys-elevation-level3);
+  opacity: 0;
+  transform: translate(-50%, -46%) scale(0.9);
+  pointer-events: none;
+  transition:
+    transform var(--md-sys-motion-spring-default-spatial),
+    opacity var(--md-sys-motion-spring-fast-effects);
+}
+.m3e-dialog[data-open="true"] {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+  pointer-events: auto;
+}
+.m3e-dialog__header {
+  display: flex;
+  align-items: center;
+  gap: var(--md-sys-spacing-4);
+  padding: var(--md-sys-spacing-6) var(--md-sys-spacing-6) var(--md-sys-spacing-4);
+}
+.m3e-dialog__title { flex: 1; }
+.m3e-dialog__content {
+  flex: 1;
+  padding: 0 var(--md-sys-spacing-6);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.m3e-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--md-sys-spacing-2);
+  padding: var(--md-sys-spacing-6);
+}
+
+/* =============================================================================
+   23 · Bottom sheet / side sheet
+   ============================================================================= */
+.m3e-sheet {
+  position: fixed;
+  z-index: var(--md-sys-z-modal);
+  display: flex;
+  flex-direction: column;
+  background: var(--md-sys-color-surface-container-low);
+  color: var(--md-sys-color-on-surface);
+  box-shadow: var(--md-sys-elevation-level3);
+  pointer-events: none;
+  opacity: 0;
+}
+/* Bottom sheet — the compact-window presentation. */
+.m3e-sheet--bottom {
+  inset: auto 0 0 0;
+  max-height: 86vh;
+  border-start-start-radius: var(--md-sys-shape-corner-extra-large-increased);
+  border-start-end-radius: var(--md-sys-shape-corner-extra-large-increased);
+  transform: translateY(100%);
+  transition: transform var(--md-sys-motion-spring-default-spatial),
+              opacity var(--md-sys-motion-spring-fast-effects);
+}
+/* Side sheet — the expanded-window presentation of the same content. */
+.m3e-sheet--side {
+  inset: 0 0 0 auto;
+  width: min(480px, 100vw);
+  border-start-start-radius: var(--md-sys-shape-corner-extra-large-increased);
+  border-end-start-radius: var(--md-sys-shape-corner-extra-large-increased);
+  transform: translateX(100%);
+  transition: transform var(--md-sys-motion-spring-default-spatial),
+              opacity var(--md-sys-motion-spring-fast-effects);
+}
+.m3e-sheet[data-open="true"] { opacity: 1; transform: none; pointer-events: auto; }
+.m3e-sheet__handle {
+  flex: none;
+  width: 32px;
+  height: 4px;
+  margin: var(--md-sys-spacing-3) auto var(--md-sys-spacing-1);
+  border-radius: var(--md-sys-shape-corner-full);
+  /* The handle is an affordance, not decoration — it must clear 3:1. */
+  background: var(--md-sys-color-outline);
+}
+.m3e-sheet--side .m3e-sheet__handle { display: none; }
+.m3e-sheet__header {
+  display: flex;
+  align-items: center;
+  gap: var(--md-sys-spacing-3);
+  padding: var(--md-sys-spacing-4) var(--md-sys-spacing-6);
+}
+.m3e-sheet__title { flex: 1; }
+.m3e-sheet__content {
+  flex: 1;
+  padding: 0 var(--md-sys-spacing-6) var(--md-sys-spacing-6);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* =============================================================================
+   24 · Snackbar
+   ============================================================================= */
+.m3e-snackbar {
+  position: fixed;
+  left: 50%;
+  bottom: var(--md-sys-spacing-6);
+  z-index: var(--md-sys-z-snackbar);
+  display: flex;
+  align-items: center;
+  gap: var(--md-sys-spacing-4);
+  width: max-content;
+  max-width: min(600px, calc(100vw - var(--md-sys-spacing-8)));
+  min-height: 48px;
+  padding: var(--md-sys-spacing-3) var(--md-sys-spacing-4) var(--md-sys-spacing-3) var(--md-sys-spacing-5);
+  border-radius: var(--md-sys-shape-corner-medium-increased);
+  background: var(--md-sys-color-inverse-surface);
+  color: var(--md-sys-color-inverse-on-surface);
+  box-shadow: var(--md-sys-elevation-level3);
+  opacity: 0;
+  transform: translate(-50%, calc(100% + var(--md-sys-spacing-8)));
+  pointer-events: none;
+  transition: transform var(--md-sys-motion-spring-default-spatial),
+              opacity var(--md-sys-motion-spring-fast-effects);
+}
+.m3e-snackbar[data-open="true"] { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+.m3e-snackbar__text {
+  flex: 1;
+  font: var(--md-sys-typescale-body-medium-weight) var(--md-sys-typescale-body-medium-size) / 1.4 var(--md-ref-typeface-plain);
+}
+.m3e-snackbar__action {
+  flex: none;
+  padding: var(--md-sys-spacing-2) var(--md-sys-spacing-3);
+  border: none;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: transparent;
+  color: var(--md-sys-color-inverse-primary);
+  font: 600 var(--md-sys-typescale-label-large-size) / 1 var(--md-ref-typeface-plain);
+  cursor: pointer;
+}
+.m3e-snackbar--error { background: var(--md-sys-color-error-container); color: var(--md-sys-color-on-error-container); }
+.m3e-snackbar--error .m3e-snackbar__action { color: var(--md-sys-color-on-error-container); text-decoration: underline; }
+
+/* =============================================================================
+   25 · Tooltip
+   ============================================================================= */
+.m3e-tooltip {
+  position: absolute;
+  z-index: var(--md-sys-z-snackbar);
+  padding: var(--md-sys-spacing-1) var(--md-sys-spacing-2);
+  border-radius: var(--md-sys-shape-corner-extra-small);
+  background: var(--md-sys-color-inverse-surface);
+  color: var(--md-sys-color-inverse-on-surface);
+  font: var(--md-sys-typescale-body-small-weight) var(--md-sys-typescale-body-small-size) / 1.2 var(--md-ref-typeface-plain);
+  white-space: nowrap;
+  pointer-events: none;
+  animation: m3e-tooltip-in var(--md-sys-motion-duration-fast-effects) var(--md-sys-motion-easing-fast-effects);
+}
+@keyframes m3e-tooltip-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* =============================================================================
+   26 · Divider
+   ============================================================================= */
+.m3e-divider { height: 1px; border: none; margin: 0; background: var(--md-sys-color-outline-variant); }
+.m3e-divider--inset { margin-inline: var(--md-sys-spacing-4); }
+
+/* =============================================================================
+   27 · Empty / error state
+   ============================================================================= */
+.m3e-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--md-sys-spacing-4);
+  padding: var(--md-sys-spacing-16) var(--md-sys-spacing-6);
+  text-align: center;
+}
+.m3e-empty__glyph {
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 96px;
+  border-radius: 42% 58% 60% 40% / 50% 44% 56% 50%;
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+  animation: m3e-loading-morph 8s var(--md-sys-motion-easing-default-spatial) infinite;
+}
+.m3e-empty__glyph > svg { width: 40px; height: 40px; }
+.m3e-empty__title { color: var(--md-sys-color-on-surface); }
+.m3e-empty__body {
+  max-width: 44ch;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+/* =============================================================================
+   28 · Motion presets for entering content
+   ============================================================================= */
+.m3e-enter {
+  animation: m3e-enter var(--md-sys-motion-duration-default-spatial) var(--md-sys-motion-easing-default-spatial) backwards;
+  animation-delay: calc(var(--m3e-index, 0) * 24ms);
+}
+@keyframes m3e-enter {
+  from { opacity: 0; transform: translateY(12px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+[data-motion="reduced"] .m3e-enter,
+[data-motion="reduced"] .m3e-fab-menu__item { animation: none; }
+[data-motion="reduced"] .m3e-loading { animation: m3e-loading-spin 3s linear infinite; }
+[data-motion="reduced"] .m3e-skeleton { animation: none; }
+
+/* Pulse — draws the eye to a value that just changed. */
+.m3e-pulse { animation: m3e-pulse var(--md-sys-motion-duration-default-spatial) var(--md-sys-motion-easing-default-spatial); }
+@keyframes m3e-pulse {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+[data-motion="reduced"] .m3e-pulse { animation: none; }
+
+/* =============================================================================
+   29 · Forced-colors (Windows High Contrast)
+   Tokens resolve to system colours; state layers become borders.
+   ============================================================================= */
+@media (forced-colors: active) {
+  .m3e-button,
+  .m3e-chip,
+  .m3e-card,
+  .m3e-fab,
+  .m3e-toolbar,
+  .m3e-dialog,
+  .m3e-sheet,
+  .m3e-menu { border: 1px solid CanvasText; }
+  .m3e-state::before { display: none; }
+  .m3e-button[aria-pressed="true"],
+  .m3e-chip[aria-selected="true"],
+  .m3e-segmented__item[aria-selected="true"] {
+    background: Highlight;
+    color: HighlightText;
+    forced-color-adjust: none;
+  }
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 3px solid CanvasText;
+  }
+}
+
+/* =============================================================================
+   30 · Video
+
+   Native controls, deliberately. The browser's own control set is already
+   keyboard-complete, screen-reader labelled, and brings picture-in-picture and
+   fullscreen for free; a hand-built control bar would be a large amount of
+   code whose best possible outcome is parity. What the design system supplies
+   is the frame: shape, surface and focus behaviour consistent with everything
+   else.
+   ============================================================================= */
+.m3e-video {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  background: var(--md-sys-color-surface-container-highest);
+  border-radius: inherit;
+}
+.m3e-video:focus-visible {
+  outline: 3px solid var(--md-sys-color-secondary);
+  outline-offset: 2px;
+}
+
+/* =============================================================================
+   31 · Carousel  (M3 Expressive)
+
+   The carousel is the component M3 Expressive added specifically for browsing
+   media, and it is the backbone of this product: the dashboard exists to let
+   someone scroll through saved photos and video, which is a horizontal
+   browsing problem, not a vertical list problem.
+
+   Three of the four M3 carousel layouts are implemented, because they answer
+   three different questions:
+
+     --hero        one large item plus a sliver of the next.
+                   "Look at this one." Used for the spotlight rail.
+     --multi       many items of equal size.
+                   "What have I got?" Used for every collection rail.
+     --uncontained items keep their natural width and run past the edge.
+                   "Keep going." Used for mixed-aspect media strips.
+
+   The defining M3 behaviour is that items are NOT all the same size: the ones
+   entering and leaving the viewport are smaller, so the rail reads as a
+   physical strip continuing past the screen edge rather than a row that has
+   been abruptly clipped. That is what `scroll-snap` + the `--_peek` sizing
+   below produce, using only layout — no scroll listener, no JS per frame.
+   ============================================================================= */
+.m3e-carousel {
+  --_gap: var(--md-sys-spacing-2);
+  --_peek: 0px;
+
+  display: grid;
+  grid-auto-flow: column;
+  gap: var(--_gap);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  /* Momentum on iOS; also stops a horizontal flick from turning into a
+     browser back-navigation gesture halfway through a rail. */
+  overscroll-behavior-x: contain;
+  scroll-behavior: smooth;
+  scroll-padding-inline: var(--_gap);
+  padding-block: var(--md-sys-spacing-1);
+  /* The scrollbar is suppressed and replaced by explicit affordances (arrow
+     buttons on pointer devices, the strip's own overflow on touch). A visible
+     bar under every rail on a page of eight rails is visual noise, and it is
+     never the control anyone reaches for. */
+  scrollbar-width: none;
+}
+.m3e-carousel::-webkit-scrollbar { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .m3e-carousel { scroll-behavior: auto; }
+}
+
+.m3e-carousel__item {
+  position: relative;
+  scroll-snap-align: start;
+  scroll-snap-stop: normal;
+  min-width: 0;
+  /* Shape and size are the two channels that carry "this item is entering the
+     viewport" in M3's carousel. Both spring. */
+  transition: inline-size var(--md-sys-motion-spring-default-spatial),
+              border-radius var(--md-sys-motion-spring-default-spatial);
+}
+
+/* -- multi-browse ---------------------------------------------------------- */
+.m3e-carousel--multi {
+  --_item: 168px;
+  grid-auto-columns: var(--_item);
+}
+/* -- hero ------------------------------------------------------------------ */
+.m3e-carousel--hero {
+  --_item: min(78%, 560px);
+  --_peek: var(--md-sys-spacing-10);
+  grid-auto-columns: var(--_item);
+  scroll-snap-type: x mandatory;
+}
+/* -- uncontained ----------------------------------------------------------- */
+.m3e-carousel--uncontained {
+  grid-auto-columns: max-content;
+  scroll-snap-type: x proximity;
+}
+
+/* Full-bleed rails: the strip runs to the window edge even though its section
+   is inset, which is what makes it read as continuing rather than ending.
+   The inline padding restores the alignment of the FIRST item with the
+   section's text above it. */
+.m3e-carousel--bleed {
+  margin-inline: calc(-1 * var(--_bleed, var(--md-sys-spacing-4)));
+  padding-inline: var(--_bleed, var(--md-sys-spacing-4));
+  scroll-padding-inline-start: var(--_bleed, var(--md-sys-spacing-4));
+}
+
+/* Rail header: title, count, and the pointer-only arrows. */
+.m3e-rail-head {
+  display: flex;
+  align-items: center;
+  gap: var(--md-sys-spacing-3);
+  margin-block-end: var(--md-sys-spacing-2);
+  min-height: 40px;
+}
+.m3e-rail-head__title { margin: 0; min-width: 0; }
+.m3e-rail-head__count {
+  padding: 2px 10px;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+.m3e-rail-head__spacer { flex: 1; }
+.m3e-rail-head__nav { display: flex; gap: var(--md-sys-spacing-1); flex: none; }
+
+/* Arrows are a pointer affordance only. On touch the gesture IS the control,
+   and a pair of buttons covering the media would be worse than nothing. */
+@media (hover: none) {
+  .m3e-rail-head__nav { display: none; }
+}
+.m3e-carousel-arrow {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: var(--md-sys-color-surface-container-high);
+  color: var(--md-sys-color-on-surface);
+  cursor: pointer;
+  position: relative;
+  transition: scale var(--md-sys-motion-spring-fast-spatial),
+              background-color var(--md-sys-motion-spring-fast-effects),
+              border-radius var(--md-sys-motion-spring-fast-spatial);
+}
+.m3e-carousel-arrow > svg { width: 20px; height: 20px; }
+.m3e-carousel-arrow:hover { background: var(--md-sys-color-secondary-container); }
+/* Shape morph on press — the M3E pressed state for a round control is a
+   squarer one, which reads as physical compression rather than a colour flash. */
+.m3e-carousel-arrow:active { scale: 0.92; border-radius: var(--md-sys-shape-corner-medium); }
+.m3e-carousel-arrow:disabled {
+  opacity: var(--md-sys-state-disabled-content-opacity);
+  cursor: default;
+  scale: 1;
+}
+.m3e-carousel-arrow:focus-visible {
+  outline: 3px solid var(--md-sys-color-secondary);
+  outline-offset: 2px;
+}
+
+/* =============================================================================
+   32 · Media tile
+
+   The atom of this product. One saved photo or video, sized by its own aspect
+   ratio, with everything else — author, duration, count — layered on top of it
+   rather than beside it.
+
+   Why overlay rather than a caption block: in a browsing surface the media is
+   the content and the metadata is the label. Giving the label its own row
+   halves the number of items on screen and doubles the scroll distance to see
+   the same library. The overlay is a gradient scrim rather than a flat bar so
+   it stays legible over both a white screenshot and a night photo.
+   ============================================================================= */
+.m3e-tile {
+  --_radius: var(--md-sys-shape-corner-large-increased);
+
+  position: relative;
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: var(--_radius);
+  background: var(--md-sys-color-surface-container-high);
+  color: var(--md-sys-color-on-surface);
+  overflow: hidden;
+  cursor: pointer;
+  isolation: isolate;
+  /* Shape and lift are the two hover channels; colour is left alone so the
+     media underneath is never tinted. */
+  transition: border-radius var(--md-sys-motion-spring-default-spatial),
+              scale var(--md-sys-motion-spring-fast-spatial),
+              box-shadow var(--md-sys-motion-spring-default-effects);
+}
+.m3e-tile:hover { scale: 1.012; box-shadow: var(--md-sys-elevation-level2); }
+.m3e-tile:active { scale: 0.985; border-radius: var(--md-sys-shape-corner-medium-increased); }
+.m3e-tile:focus-visible {
+  outline: 3px solid var(--md-sys-color-secondary);
+  outline-offset: 3px;
+}
+
+.m3e-tile__media,
+.m3e-tile__media img,
+.m3e-tile__media video {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  background: var(--md-sys-color-surface-container-highest);
+}
+
+.m3e-tile__scrim {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  padding: var(--md-sys-spacing-6) var(--md-sys-spacing-3) var(--md-sys-spacing-3);
+  display: flex;
+  align-items: flex-end;
+  gap: var(--md-sys-spacing-2);
+  /* Two stops rather than a linear ramp: a straight linear-gradient over an
+     image reads as a grey haze across the middle of the picture. Weighting
+     the ramp to the bottom third keeps the media clean. */
+  background: linear-gradient(
+    to top,
+    rgb(0 0 0 / 0.72) 0%,
+    rgb(0 0 0 / 0.42) 38%,
+    rgb(0 0 0 / 0) 100%
+  );
+  color: #fff;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity var(--md-sys-motion-spring-default-effects);
+}
+.m3e-tile__scrim > * { pointer-events: auto; }
+.m3e-tile__meta { min-width: 0; flex: 1; }
+.m3e-tile__author {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.5);
+}
+.m3e-tile__sub {
+  display: block;
+  opacity: 0.85;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.5);
+}
+
+/* Corner badge: duration, GIF, or +N. Always top-trailing, always the same
+   shape, so it is findable without being read. */
+.m3e-tile__badge {
+  position: absolute;
+  inset-block-start: var(--md-sys-spacing-2);
+  inset-inline-end: var(--md-sys-spacing-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: rgb(0 0 0 / 0.62);
+  color: #fff;
+  font: var(--md-sys-typescale-label-medium-emphasized-weight)
+        var(--md-sys-typescale-label-medium-size) /
+        var(--md-sys-typescale-label-medium-line-height)
+        var(--md-ref-typeface-plain);
+  font-variant-numeric: tabular-nums;
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+}
+.m3e-tile__badge > svg { width: 14px; height: 14px; }
+
+/* Play affordance. Scales up on hover of the whole tile, which ties the two
+   together without needing a second hover target. */
+.m3e-tile__play {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  translate: -50% -50%;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: rgb(0 0 0 / 0.52);
+  color: #fff;
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+  transition: scale var(--md-sys-motion-spring-default-spatial),
+              opacity var(--md-sys-motion-spring-default-effects);
+}
+.m3e-tile__play > svg { width: 28px; height: 28px; margin-inline-start: 3px; }
+.m3e-tile:hover .m3e-tile__play { scale: 1.1; }
+.m3e-tile[data-playing="true"] .m3e-tile__play,
+.m3e-tile[data-playing="true"] .m3e-tile__badge { opacity: 0; }
+
+/* =============================================================================
+   33 · Scroll progress
+
+   A carousel with no scrollbar needs some indication of extent, or a rail of
+   forty items looks like a rail of five. This is a passive indicator, not a
+   control: it is driven by `--m3e-progress` from a scroll listener and is
+   aria-hidden, because the same information is already available to assistive
+   tech through the list's own item count.
+   ============================================================================= */
+.m3e-scroll-progress {
+  block-size: 3px;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: var(--md-sys-color-surface-container-highest);
+  overflow: hidden;
+}
+.m3e-scroll-progress__bar {
+  display: block;
+  block-size: 100%;
+  /* `--m3e-extent` is the visible fraction of the rail (thumb size) and
+     `--m3e-progress` is how far through it we are, both set by the scroll
+     handler. Expressing the offset as a percentage of the BAR's own width
+     avoids needing container queries: at progress 1 the bar has travelled
+     exactly its own width short of the track. */
+  inline-size: var(--m3e-extent, 30%);
+  border-radius: inherit;
+  background: var(--md-sys-color-primary);
+  /* `left` as a percentage resolves against the TRACK, not the bar, which is
+     exactly the coordinate space the scroll handler is working in — so the
+     offset is simply `scrollLeft / scrollWidth`, with no width algebra. */
+  position: relative;
+  inset-inline-start: var(--m3e-offset, 0%);
+  transition: inset-inline-start var(--md-sys-motion-spring-fast-spatial);
+}
+@media (prefers-reduced-motion: reduce) {
+  .m3e-scroll-progress__bar { transition: none; }
+}

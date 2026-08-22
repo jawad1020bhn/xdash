@@ -1,0 +1,9 @@
+{
+  "name": "x-bookmarks-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Editorial visual archive for X bookmarks — static, build-free.",
+  "scripts": {
+    "start": "npx --yes serve -l 3000 ."
+  }
+}
