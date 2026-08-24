@@ -47,6 +47,9 @@
     if (!root.S.prefs.autoplayPreviews) return;
     if (!root.M3EMedia.isMotion(item.media) || !item.playable) return;
     clearTimeout(previewTimer);
+    /* Fast pointer travel can leave a previous preview attached to another
+       card — tearing it down first guarantees at most one live <video>. */
+    if (previewing && previewing.card !== card) stopPreview();
     previewTimer = setTimeout(() => {
       stopPreview();
       const video = root.M3EMedia.createVideo(item.media, {
@@ -121,8 +124,14 @@
     }
     img.addEventListener("load", () => img.classList.add("is-loaded"), { once: true });
     img.addEventListener("error", () => {
-      img.classList.add("is-loaded");
-      img.style.opacity = "0.25";
+      /* A dead CDN link should never read as a bug. Swap the tile for an
+         honest placeholder that keeps the grid's rhythm and still carries
+         the creator + type marks layered on top of it. */
+      el.classList.add("is-unavailable");
+      img.remove();
+      box.appendChild(h(".card__missing",
+        { html: icon(motion ? "play" : "photo", 22), "aria-hidden": "true" }
+      ));
     }, { once: true });
     box.appendChild(img);
     el.appendChild(box);

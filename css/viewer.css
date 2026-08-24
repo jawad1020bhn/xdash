@@ -57,7 +57,17 @@
   object-fit: contain;
   border-radius: 8px;
   background: #000;
+  /* Media settles into place like a native photo viewer: a short rise,
+     not a page load. Replays per navigation because the element itself is
+     replaced on every paint. */
+  animation: media-settle 240ms var(--ease-out);
 }
+@keyframes media-settle {
+  from { opacity: 0; scale: 0.975; }
+  to { opacity: 1; scale: 1; }
+}
+[data-motion="reduced"] .viewer__frame img,
+[data-motion="reduced"] .viewer__frame video { animation: none; }
 .viewer__frame img {
   scale: var(--viewer-zoom, 1);
   transition: scale var(--spring-settle);
@@ -287,7 +297,24 @@
   border-inline-start: 1px solid rgb(255 255 255 / 0.08);
   background: #111116;
 }
-.viewer[data-state="context"] .viewer__pane { display: block; }
+.viewer[data-state="context"] .viewer__pane {
+  display: block;
+  /* The details pane arrives like a native split-view: it slides in from
+     its edge with a settle, not a teleport. */
+  animation: pane-in var(--spring-settle);
+}
+@keyframes pane-in {
+  from { opacity: 0; translate: 24px 0; }
+  to { opacity: 1; translate: 0 0; }
+}
+[data-motion="reduced"] .viewer[data-state="context"] .viewer__pane { animation: none; }
+/* On phones the pane is a bottom sheet, so it rises instead. */
+@media (max-width: 719px) {
+  @keyframes pane-in {
+    from { opacity: 0; translate: 0 40px; }
+    to { opacity: 1; translate: 0 0; }
+  }
+}
 
 /* Drag handle between media and details. Keyboard-adjustable with the arrows. */
 .viewer__divider {
@@ -337,9 +364,17 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
-.pane__by { display: flex; align-items: center; gap: 10px; }
-.pane__by img { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; }
-.pane__by b { display: block; font-size: 14px; font-weight: 600; }
+.pane__by { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.pane__by img { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; flex: none; }
+.pane__by > div { min-width: 0; }
+.pane__by b {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .pane__by small { color: rgb(255 255 255 / 0.5); font-size: 12.5px; }
 .pane__text { margin: 12px 0 0; font-size: 13.5px; line-height: 1.6; color: rgb(255 255 255 / 0.86); white-space: pre-wrap; overflow-wrap: anywhere; }
 .pane__quote {
@@ -413,6 +448,21 @@
   transition: opacity var(--t-ui) var(--ease), translate var(--t-ui) var(--ease);
   pointer-events: none;
 }
+
+/* On phones the controls sit above the gesture bar, and every hit area is
+   finger-sized. The seek track grows to 28px of touchable height with the
+   visual line unchanged; the thumb scales up on coarse pointers only. */
+@media (pointer: coarse) {
+  .slide__controls {
+    padding: 34px 16px calc(14px + env(safe-area-inset-bottom));
+    gap: 8px;
+  }
+  .slide__seek { height: 28px; }
+  .slide__control { width: 44px; height: 44px; }
+  .slide__control > svg { width: 22px; height: 22px; }
+  .slide__control:active { transform: scale(0.9); transition: transform 100ms var(--ease); }
+  .slide__rate { min-height: 36px; }
+}
 .slide__controls.is-visible { opacity: 1; translate: 0; pointer-events: auto; }
 
 .slide__seek {
@@ -451,6 +501,11 @@
 .slide__seek::-moz-range-thumb { width: 12px; height: 12px; border: none; border-radius: 50%; background: #fff; }
 .slide__seek:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
 .slide__seek:disabled { opacity: 0.4; cursor: default; }
+/* Fingers need a thumb they can actually see and grab. */
+@media (pointer: coarse) {
+  .slide__seek::-webkit-slider-thumb { width: 18px; height: 18px; margin-block-start: -7px; }
+  .slide__seek::-moz-range-thumb { width: 18px; height: 18px; }
+}
 
 .slide__controls-row { display: flex; align-items: center; gap: 2px; }
 .slide__controls-spacer { flex: 1; }
@@ -648,4 +703,38 @@
   .vbtn__label { display: none; }
   .viewer__top .vbtn--back { width: 36px; padding: 0; justify-content: center; }
   .viewer__cap { -webkit-line-clamp: 2; font-size: 13px; }
+}
+
+/* ==========================================================================
+   Native-app polish — viewer
+   ------------------------------------------------------------------------
+   Chrome clears the status bar / gesture bar; the photo or video itself may
+   run under them. Touch targets grow without changing the visual language.
+   ========================================================================== */
+@media (max-width: 719px) {
+  .viewer__top {
+    padding-block-start: calc(12px + env(safe-area-inset-top));
+    padding-inline: 12px;
+  }
+  .viewer__foot {
+    padding: 44px 18px calc(16px + env(safe-area-inset-bottom));
+  }
+
+  /* Full-bleed feel: media runs to the edges, rounded corners only when the
+     image is smaller than the viewport. */
+  .viewer__frame img,
+  .viewer__frame video {
+    border-radius: 0;
+    max-height: calc(100dvh - 132px);
+  }
+
+  /* The filmstrip and gallery dots become swipe-friendly strips. */
+  .viewer__strip button, .viewer__dot { width: 54px; height: 54px; border-radius: 10px; }
+}
+
+@media (max-width: 719px) and (pointer: coarse) {
+  /* Double-tap zoom hint: photos respond to double-tap already (see
+     js/viewer.js); this just widens the tap tolerance window visually by
+     keeping the frame still during the first tap. */
+  .viewer__frame img { touch-action: manipulation; }
 }

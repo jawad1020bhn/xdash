@@ -192,7 +192,7 @@
         confirm: "Delete everything",
         danger: true,
         onConfirm: async () => {
-          St.state.library = { viewed: {}, archived: {}, progress: {}, lastOpened: {} };
+          St.state.library = { viewed: {}, archived: {}, progress: {}, lastOpened: {}, surfaced: {} };
           St.state.dead = [];
           await root.XBStore.saveBookmarks([]);
           await root.XBStore.saveLibrary(St.state.library);

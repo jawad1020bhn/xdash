@@ -850,6 +850,6 @@
     };
   }
 
-  return { bind, isGestureActive: () => gestureActiveCount > 0 };
+  return { bind, isGestureActive: () => activeGestures.size > 0 };
 });
 

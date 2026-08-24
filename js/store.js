@@ -34,7 +34,7 @@
     fullCaptions: false,
     autoplayPreviews: true,
     autoplayCenteredOnly: true,
-    alwaysMuted: true,
+    alwaysMuted: false,
     rememberProgress: true,
     defaultSpeed: 1,
     loopGifs: true,
@@ -323,6 +323,15 @@
     library.lastOpened = library.lastOpened || {};
     library.surfaced = library.surfaced || {};
     const prefs = Object.assign({}, PREF_DEFAULTS, data[KEYS.prefs] || {});
+    /* One-time migration: the app originally shipped mute-on-open as the
+       default. When the default flipped to sound-on, everyone who had simply
+       never touched the toggle had `alwaysMuted: true` persisted anyway.
+       This resets just that one key once, so the new default takes effect;
+       anyone who flips it afterwards keeps their choice forever. */
+    if (!prefs.migratedUnmuteDefault) {
+      prefs.alwaysMuted = false;
+      prefs.migratedUnmuteDefault = true;
+    }
     // backfill for upgrades
     if (!Array.isArray(prefs.recentSearches)) prefs.recentSearches = [];
     if (!prefs.railScrolls || typeof prefs.railScrolls !== "object") prefs.railScrolls = {};

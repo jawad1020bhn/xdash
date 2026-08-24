@@ -487,7 +487,7 @@
       try { location.hash = hash; } catch (_) { /* ignore */ }
       return;
     }
-    const url = hash ? "#" + hash : location.pathname;
+    const url = hash ? "#" + hash : location.pathname + location.search;
     try {
       history.replaceState(null, "", url);
     } catch (_) {

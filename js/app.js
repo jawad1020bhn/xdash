@@ -283,9 +283,10 @@
         if (input.value) { input.value = ""; St.set({ search: "" }); }
         else { closeSearch(); input.blur(); }
       } else if (e.key === "Enter") {
+        if (!input.value.trim()) { closeSearch(); input.blur(); return; }
         St.pushRecentSearch(input.value);
         clearTimeout(searchDebounce);
-        St.set({ search: input.value, workspace: input.value ? "library" : St.state.workspace }, "search");
+        St.set({ search: input.value, workspace: "library" }, "search");
         closeSearch();
         input.blur();
       }

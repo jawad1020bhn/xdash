@@ -288,6 +288,8 @@
     document.body.style.overflow = "hidden";
     applyPaneWidth(paneWidth());
     setState(St.state.viewerState || "standard", true);
+    /* Restore the remembered filmstrip state before first paint. */
+    if (St.state.prefs.viewerFilmstrip && refs.strip.hidden) toggleStrip();
     paint();
     el.focus({ preventScroll: true });
   }
@@ -440,6 +442,7 @@
     if (!video) { paintMissing(item); return; }
     video.playbackRate = Number(St.state.prefs.defaultSpeed) || 1;
     refs.frame.appendChild(video);
+    autoStart(video);
 
     /* Stall recovery ladder: when the stream stalls twice at the current
        quality, step one rung down the MP4 variant list (preserving position,

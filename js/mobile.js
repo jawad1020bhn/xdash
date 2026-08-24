@@ -54,6 +54,11 @@
     document.body.appendChild(el);
     if (root.M3E && root.M3E.bindRipple) root.M3E.bindRipple(el);
     const done = el.querySelector(".m3e-sheet__header .ctl");
+    /* M3E drag affordance: the handle answers the grip (widen + brighten,
+     spring back on release). Purely visual — dragging itself is native. */
+    el.addEventListener("pointerdown", () => { el.dataset.dragging = "true"; });
+    ["pointerup", "pointercancel"].forEach((n) =>
+      el.addEventListener(n, () => { delete el.dataset.dragging; }));
     const overlay = root.M3E.createOverlay({
       element: el, scrim,
       onClose: () => setTimeout(() => { el.remove(); scrim.remove(); }, 260),

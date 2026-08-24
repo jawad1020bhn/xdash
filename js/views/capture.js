@@ -29,8 +29,9 @@
     idle: "Capture is ready",
     capturing: "Capturing now",
     stopped_by_error: "Capture stopped early",
+    completed: "Last capture finished cleanly",
     complete: "Last capture finished cleanly",
-    stopped: "Capture stopped",
+    stopped_by_user: "Capture stopped",
   };
 
   /** `idle` with a run behind it isn't "ready", it's "done". */

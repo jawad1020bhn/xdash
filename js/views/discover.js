@@ -201,9 +201,15 @@
     let archivedCount = 0;
     Object.values(lib.archived || {}).forEach((ts) => { if (ts >= since) archivedCount++; });
 
+    /* Progress entries carry {t, d} only — no timestamp is stored with them
+       (see XBState.progress), so they cannot be dated to this week. Instead,
+       count videos still mid-flight as evidence of watching; a finished video
+       has its position cleared. */
     let seconds = 0;
-    Object.values(lib.progress || {}).forEach((p) => {
-      if (p && p.at >= since && Number(p.t) > 0) seconds += Number(p.t);
+    Object.entries(lib.progress || {}).forEach(([id, p]) => {
+      if (p && Number(p.t) > 0 && lib.lastOpened && lib.lastOpened[id] >= since) {
+        seconds += Number(p.t);
+      }
     });
     const minutes = Math.round(seconds / 60);
 

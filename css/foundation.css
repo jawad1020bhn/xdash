@@ -297,7 +297,9 @@ body.is-booting .navbar { opacity: 0; }
   font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
-  transition: background-color var(--t-micro) var(--ease), color var(--t-micro) var(--ease);
+  transition: background-color var(--t-micro) var(--ease), color var(--t-micro) var(--ease),
+              border-start-start-radius var(--spring-fast), border-start-end-radius var(--spring-fast),
+              border-end-start-radius var(--spring-fast), border-end-end-radius var(--spring-fast);
 }
 .seg__item:hover { color: var(--text); }
 .seg__item[aria-pressed="true"] {
@@ -305,6 +307,18 @@ body.is-booting .navbar { opacity: 0; }
   color: var(--text);
   font-weight: 600;
   box-shadow: var(--shadow-1);
+}
+/* M3E button-group behaviour on touch: pressing one item sharpens ITS shape
+   and the pressed geometry reads across the connected group — the selected
+   pill flattens toward its neighbours, the whole strip answers one finger. */
+@media (pointer: coarse) {
+  .seg__item:active {
+    border-start-start-radius: 8px;
+    border-start-end-radius: 4px;
+    border-end-start-radius: 8px;
+    border-end-end-radius: 4px;
+    color: var(--text);
+  }
 }
 :root[data-scheme="dark"] .seg__item[aria-pressed="true"] { background: var(--surface-3); }
 
@@ -763,7 +777,10 @@ body.is-booting .navbar { opacity: 0; }
   :root { --rail-w: 0px; --gutter: 16px; --topbar-h: 56px; }
   .app { grid-template-columns: minmax(0, 1fr); }
   .rail { display: none; }
-  .topbar { padding-inline: 16px; }
+  .topbar {
+    padding-inline: 14px;
+    padding-block-start: calc(10px + env(safe-area-inset-top));
+  }
   .topbar__mark {
     display: grid;
     place-items: center;
@@ -798,6 +815,7 @@ body.is-booting .navbar { opacity: 0; }
     gap: 3px;
     flex: 1;
     padding: 4px 0 2px;
+    min-height: 46px; /* native tab-bar height */
     border: none;
     background: transparent;
     color: var(--text-2);

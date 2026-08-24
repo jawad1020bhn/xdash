@@ -20,6 +20,33 @@
   let idleTimer = null;
   let progressEl = null;
   let progressRaf = 0;
+  let wakeLock = null;
+
+  /* Screen wake lock: a video feed that lets the phone dim mid-watch feels
+     broken. The API is progressive (Chrome/Edge/Android); everywhere else
+     this silently does nothing and the system timeout applies as usual. */
+  async function requestWakeLock() {
+    try {
+      if ("wakeLock" in navigator) {
+        wakeLock = await navigator.wakeLock.request("screen");
+        /* Reacquire when the tab becomes visible again — the lock is released
+           by the OS on visibility loss by design. */
+        wakeLock.addEventListener("release", () => { wakeLock = null; });
+      }
+    } catch (_) { /* denied or unsupported: not worth telling the user */ }
+  }
+
+  function releaseWakeLock() {
+    try { if (wakeLock) { wakeLock.release(); wakeLock = null; } } catch (_) {}
+  }
+
+  document.addEventListener("visibilitychange", () => {
+    /* Only reacquire while a watch session is actually live; teardown()
+       already released the lock when leaving. */
+    if (document.visibilityState === "visible" && scroller) {
+      requestWakeLock();
+    }
+  });
 
   function teardown() {
     if (observer) { observer.disconnect(); observer = null; }
@@ -27,6 +54,7 @@
     clearTimeout(idleTimer);
     clearTimeout(watchPosTimer);
     cancelAnimationFrame(progressRaf);
+    releaseWakeLock();
     document.body.classList.remove("is-watch-idle");
     scroller = null;
     progressEl = null;
@@ -137,6 +165,7 @@
     exit.addEventListener("pointerenter", wake);
     wake();
     startProgress();
+    requestWakeLock();
 
     /* Play only what is centred. Without the observer (very old engines, or a
        non-visual runtime) the feed still scrolls — it just hydrates eagerly. */

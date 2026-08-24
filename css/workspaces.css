@@ -78,6 +78,17 @@
 .card__state[data-state="archived"] { background: #ffb865; }
 .card:hover .card__state { opacity: 0; }
 
+/* Selection feedback that reads at grid scale: the check pops in with a
+   spring instead of fading — a state change deserves to be *seen* from two
+   metres away, where a 150ms opacity fade disappears. */
+@keyframes pick-pop {
+  0% { scale: 0.5; }
+  60% { scale: 1.15; }
+  100% { scale: 1; }
+}
+.card.is-selected .card__pick { animation: pick-pop 260ms var(--spring-fast); }
+[data-motion="reduced"] .card.is-selected .card__pick { animation: none; }
+
 /* --- duration (video family) ---------------------------------------------- */
 .card__dur {
   position: absolute;
@@ -213,6 +224,16 @@
    need to branch in script. */
 :root[data-pointer="touch"] .card__touch { display: flex; }
 
+/* Touch cards read at arm's length: the creator line steps up to 13px so it
+   survives a one-handed scroll, and the duration badge gets a taller pill
+   that stays legible over bright video frames. */
+@media (pointer: coarse) {
+  .card__touch { padding: 22px 12px 10px; }
+  .card__touch .card__author { font-size: 13px; letter-spacing: -0.005em; text-shadow: 0 1px 3px rgb(0 0 0 / 0.55); }
+  .card__dur { height: 22px; padding-inline: 8px; font-size: 11.5px; border-radius: var(--r-pill); }
+  .card__state { width: 9px; height: 9px; inset-block-start: 9px; inset-inline-start: 9px; }
+}
+
 /* --- contextual "why this is here" ---------------------------------------- */
 .card__why {
   position: absolute;
@@ -276,11 +297,44 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(100deg, transparent 20%, color-mix(in srgb, var(--text) 5%, transparent) 50%, transparent 80%);
-  background-size: 220% 100%;
-  animation: ghost 1.4s linear infinite;
+  /* M3E wavy indeterminate track: two offset sine bands drift through the
+     tile instead of the flat shimmer sweep. Pure background-position, so it
+     stays on the compositor. */
+  background:
+    repeating-linear-gradient(115deg,
+      transparent 0 14px,
+      color-mix(in srgb, var(--accent) 7%, transparent) 14px 22px,
+      transparent 22px 44px),
+    repeating-linear-gradient(65deg,
+      transparent 0 18px,
+      color-mix(in srgb, var(--text) 4.5%, transparent) 18px 24px,
+      transparent 24px 52px);
+  background-size: 260% 100%;
+  animation: ghost-wave 1.6s var(--ease) infinite;
 }
-@keyframes ghost { from { background-position: 140% 0; } to { background-position: -60% 0; } }
+@keyframes ghost-wave {
+  from { background-position: 120% 0, -60% 0; }
+  to { background-position: -60% 0, 120% 0; }
+}
+
+/* Dead-media placeholder — the tile's honest state when its CDN link died.
+   Quiet surface, centred glyph, all overlay marks (creator, duration, ring)
+   keep working on top of it. */
+.card__missing {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background:
+    repeating-linear-gradient(45deg,
+      transparent 0 10px,
+      color-mix(in srgb, var(--text) 2.5%, transparent) 10px 20px),
+    var(--media-bg);
+  color: var(--text-3);
+}
+.card__missing > svg { width: 22px; height: 22px; opacity: 0.55; }
+.card.is-unavailable .card__state,
+.card.is-unavailable .card__dur { opacity: 0; }
 
 /* ==========================================================================
    2 · Layout engines
@@ -395,11 +449,13 @@
 /* --- greeting + one typographic line of stats ------------------------------ */
 .greet { padding-block: 30px 4px; max-width: 780px; }
 .greet h1 {
-  font-size: clamp(30px, 3.3vw, 42px);
-  line-height: 1.08;
-  letter-spacing: -0.026em;
-  font-weight: 600;
-  margin: 0 0 10px;
+  /* Committed M3E display scale: big jumps, tight tracking. The greeting is
+     the page's one typographic voice — let it speak. */
+  font-size: clamp(34px, 4.2vw, 52px);
+  line-height: 1.04;
+  letter-spacing: -0.032em;
+  font-weight: 700;
+  margin: 0 0 12px;
 }
 .greet__stats {
   color: var(--text-2);
@@ -813,7 +869,7 @@ body.is-watch-idle .watch { cursor: none; }
   color: #fff;
   pointer-events: none;
 }
-.watch__meta b { font-size: 14px; font-weight: 600; }
+.watch__meta b { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
 .watch__meta p {
   margin: 0;
   font-size: 13px;
@@ -824,8 +880,19 @@ body.is-watch-idle .watch { cursor: none; }
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  /* Captions are arbitrary user content: URLs, CJK, emoji, RTL quotes. */
+  overflow-wrap: anywhere;
 }
 .watch__meta a { pointer-events: auto; color: inherit; }
+
+/* Long creator names and handles must never push the side action rail or
+   overlap the caption; they truncate instead. */
+.viewer__by b, .viewer__by span {
+  max-width: 40ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .watch__side {
   position: absolute;
@@ -912,3 +979,52 @@ body.is-watch-idle .watch { cursor: none; }
 }
 .watch__missing p { margin: 0; font-size: 13.5px; }
 .watch__missing a { color: inherit; text-decoration: none; }
+
+/* ==========================================================================
+   6 · Native-app polish — Watch & media surfaces
+   ------------------------------------------------------------------------
+   The details that separate an app from a page in a browser tab: media that
+   runs under system bars while controls never do, tap feedback, and type
+   tuned for arm's-length reading.
+   ========================================================================== */
+
+/* Tap flash off everywhere; it's the loudest web tell on any dark surface. */
+.watch, .viewer { -webkit-tap-highlight-color: transparent; }
+
+/* Pressed feedback for the circular side actions (archive / details / open). */
+@media (pointer: coarse) {
+  .watch__side button:active,
+  .watch__exit:active { transform: scale(0.9); transition: transform 100ms var(--ease); }
+}
+
+@media (max-width: 719px) {
+  /* Media runs edge-to-edge under the status bar and gesture bar; the
+     gradient-anchored chrome (exit, meta, progress) keeps its own safe-area
+     padding so buttons stay clear of system UI. */
+  .watch__frame { width: 100%; }
+
+  .watch__meta {
+    padding: 72px 18px calc(20px + env(safe-area-inset-bottom));
+    gap: 7px;
+  }
+  /* Arm's-length type: captions bump up a step so they're readable without
+     squinting, exactly like native feed apps. */
+  .watch__meta b { font-size: 15px; }
+  .watch__meta p { font-size: 14px; line-height: 1.5; -webkit-line-clamp: 4; max-width: calc(100% - 64px); }
+
+  .watch__side {
+    inset-block-end: calc(96px + env(safe-area-inset-bottom));
+  }
+
+  .watch__exit { inset-block-start: calc(12px + env(safe-area-inset-top)); }
+
+  /* Progress line rides just above the gesture bar instead of being
+     swallowed by it. */
+  .watch__progress { inset-block-end: env(safe-area-inset-bottom); }
+}
+
+/* Landscape phone in Watch: the frame should use every pixel of height. */
+@media (orientation: landscape) and (max-height: 520px) and (pointer: coarse) {
+  .watch__frame { width: auto; height: 100dvh; }
+  .watch__frame video, .watch__frame img { height: 100%; width: auto; }
+}

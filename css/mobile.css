@@ -138,6 +138,13 @@
     transition: width var(--spring-fast), height var(--spring-fast),
                 background-color var(--t-ui) var(--ease);
   }
+  /* M3E squish: landing on a destination compresses the pill vertically for
+     a beat; the spring settles it back. Geometry springs, colour doesn't. */
+  .navbar__item[aria-selected="true"]:active .rail__pill {
+    transform: scaleY(0.78) scaleX(1.06);
+    transform-origin: center bottom;
+    transition: transform var(--spring-settle);
+  }
 
   /* More sheet rows (built by js/mobile.js) */
   .more-row {
@@ -277,17 +284,131 @@
                 scale var(--spring-fast), background-color var(--t-micro) var(--ease);
   }
   .discover__refresh span { display: inline; }
-  .discover__refresh:active { scale: 0.96; }
   .discover__refresh:hover { background: color-mix(in srgb, var(--accent) 92%, #000); color: var(--on-accent); }
+  /* M3E FAB shape morph: at rest an extended FAB (19px radius); under
+     pressure it rounds fully toward the circle — the opposite direction of
+     ordinary buttons, which sharpen. Both are "the shape answers the touch." */
+  .discover__refresh {
+    border-start-start-radius: 19px;
+    border-start-end-radius: 19px;
+    border-end-start-radius: 19px;
+    border-end-end-radius: 19px;
+    transition:
+      border-start-start-radius var(--spring-settle),
+      border-start-end-radius var(--spring-settle),
+      border-end-start-radius var(--spring-settle),
+      border-end-end-radius var(--spring-settle),
+      background-color var(--t-micro) var(--ease),
+      translate var(--spring-move), opacity var(--t-ui) var(--ease);
+  }
+  .discover__refresh:active {
+    border-start-start-radius: 999px;
+    border-start-end-radius: 999px;
+    border-end-start-radius: 999px;
+    border-end-end-radius: 999px;
+  }
 
   /* ==========================================================================
-     4c · Adaptive surfaces — sheets get large top corners, matching the
+     4b · Adaptive surfaces — sheets get large top corners, matching the
           shape hierarchy of the floating objects.
      ========================================================================== */
   .m3e-sheet--bottom {
     border-start-start-radius: 24px;
     border-start-end-radius: 24px;
   }
+  /* M3E drag affordance: while the sheet is being touched, the handle
+     stretches wider and brightens — the shape acknowledges the grip, then
+     springs back on release (sheet JS toggles data-dragging on pointerdown/
+     up; without it this simply never activates). */
+  .m3e-sheet__handle {
+    transition: width var(--spring-fast), opacity var(--t-micro) var(--ease);
+  }
+  .m3e-sheet--bottom[data-dragging="true"] .m3e-sheet__handle {
+    width: 44px;
+    opacity: 1;
+  }
+
+  /* Native-app feel: kill the browser's blue/gray tap flash and text
+     auto-inflation. Every touch surface ships these two lines; their absence
+     is one of the loudest "this is a website" tells there is. */
+  * { -webkit-tap-highlight-color: transparent; }
+  body { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+  /* Momentum scrolling everywhere, like a native view. */
+  .stage, .rail-scroll, .m3e-sheet__content, .viewer__pane,
+  .search__panel { -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; }
+}
+
+/* ==========================================================================
+   10 · Touch ergonomics — 44px is the floor, not the aspiration
+   ------------------------------------------------------------------------
+   Apple HIG minimum touch target. Applied to every control that survives on
+   a phone: nav items, pills in sheets, viewer chrome buttons, watch actions,
+   selection checkboxes. Icon glyphs stay visually identical; only the hit
+   area grows (padding / min-width, not scale).
+   ========================================================================== */
+@media (pointer: coarse) {
+  /* Bottom navigation: full-height rows with real breathing room. */
+  .navbar__item { padding-block: 8px 6px; min-height: 48px; }
+  .navbar__item .rail__pill { width: 60px; height: 32px; }
+
+  /* Pills and segmented chips inside sheets and filter panels. */
+  .sheet__opts .pill,
+  .filters__opts .pill,
+  .search__chips .pill { height: 44px; padding-inline: 18px; font-size: 14px; }
+  .seg__item { min-height: 40px; }
+
+  /* Viewer chrome: bigger hit areas without changing glyph size. */
+  .vbtn { height: 44px; }
+  .vbtn--icon { width: 44px; }
+  .viewer__step > span { width: 52px; height: 52px; }
+  .viewer__dot, .viewer__strip button { width: 56px; height: 56px; }
+
+  /* Card selection checkbox — the single most-missed target on any grid. */
+  .card__pick { width: 34px; height: 34px; border-width: 2px; }
+  .card__pick > svg { width: 17px; height: 17px; }
+
+  /* Watch side rail buttons: 48px, thumb-reach spacing. */
+  .watch__side button { width: 48px; height: 48px; }
+  .watch__side button > svg { width: 21px; height: 21px; }
+  .watch__side { gap: 12px; inset-inline-end: 12px; }
+
+  /* Snackbar action and dialog buttons. */
+  .m3e-snackbar { padding-block: 6px; }
+}
+
+/* Active-state feedback replaces hover on touch — but M3 Expressive style:
+   pressing MORPHS THE SHAPE toward square (radius collapses) on a spring,
+   rather than the generic scale-down. Round and square controls share one
+   pressed shape so the whole surface speaks the same motion language.
+   Effects like opacity stay duration-based; only geometry springs. */
+@media (pointer: coarse) {
+  .ctl:active,
+  .iconctl:active,
+  .pill:active,
+  .seg__item:active,
+  .vbtn:active,
+  .more-row:active {
+    border-start-start-radius: 6px;
+    border-start-end-radius: 6px;
+    border-end-start-radius: 6px;
+    border-end-end-radius: 6px;
+    transition:
+      border-start-start-radius var(--spring-fast),
+      border-start-end-radius var(--spring-fast),
+      border-end-start-radius var(--spring-fast),
+      border-end-end-radius var(--spring-fast);
+  }
+  /* Pills are fully rounded at rest → pressed they become a squircle-ish
+     14px, the same "sharpening under pressure" direction as every other
+     control. */
+  .pill:active { border-start-start-radius: 14px; border-start-end-radius: 14px; border-end-start-radius: 14px; border-end-end-radius: 14px; }
+
+  .navbar__item:active .rail__pill,
+  .rail__item:active .rail__pill { transform: scaleY(0.82); transition: transform var(--spring-fast); }
+
+  .card:active { scale: 0.97; transition: scale 120ms var(--ease); }
+  .hero__play:active > span { scale: 0.94; }
 }
 
 /* Sub-380px: slightly narrower cards keep two columns breathing. */

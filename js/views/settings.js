@@ -179,7 +179,7 @@
   function playback(app) {
     const p = St.state.prefs;
     return group("playback", "Playback", "Video and GIF behaviour in the viewer and in Watch.",
-      row("Start muted", "Videos open silent. You can unmute per video.", toggle("alwaysMuted")),
+      row("Start muted", "Videos open with sound. Turn on to start silent instead.", toggle("alwaysMuted")),
       row("Remember position", "Resume long videos where you stopped.", toggle("rememberProgress")),
       row("Loop GIFs", "GIFs repeat until you move on.", toggle("loopGifs")),
       row("Loop videos", "Videos repeat instead of ending.", toggle("loopVideos")),
