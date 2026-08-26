@@ -1,83 +1,131 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
-  <meta name="theme-color" content="#FAF9FC" />
-  <meta name="color-scheme" content="light dark" />
-  <meta name="description" content="A personal visual archive of everything you saved on X." />
-  <link rel="manifest" href="manifest.webmanifest?v=1" />
-  <link rel="apple-touch-icon" href="icons/icon-192.png" />
-  <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="X Archive" />
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%235B4CF5'/%3E%3Cpath d='M6 7.5h12v2H6v-2Zm0 4h12v5.5a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-5.5Z' fill='white'/%3E%3C/svg%3E" />
-  <title>Discover · X Bookmarks</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0B0B0E" media="(prefers-color-scheme: dark)" />
+<meta name="theme-color" content="#FBFBFD" media="(prefers-color-scheme: light)" />
+<meta name="color-scheme" content="dark light" />
+<meta name="description" content="A fast, private, offline-first visual archive of everything you saved on X." />
+<meta name="apple-mobile-web-app-title" content="Archive" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="preconnect" href="https://pbs.twimg.com" crossorigin />
+<link rel="preconnect" href="https://video.twimg.com" crossorigin />
 
-  <!-- Shared Material 3 Expressive layer: type, tokens, component mechanics.
-       ?v= busts the cache when assets change; the extension and local previews
-       otherwise serve stale CSS/JS. -->
-  <link rel="stylesheet" href="m3e/fonts.css?v=16" />
-  <link rel="stylesheet" href="m3e/tokens.css?v=16" />
-  <link rel="stylesheet" href="m3e/components.css?v=16" />
+<link rel="stylesheet" href="styles/tokens.css" />
+<link rel="stylesheet" href="styles/base.css" />
+<link rel="stylesheet" href="styles/components.css" />
+<link rel="stylesheet" href="styles/views.css" />
 
-  <!-- Editorial Visual Archive: the product's own voice, layered on top. -->
-  <link rel="stylesheet" href="css/foundation.css?v=16" />
-  <link rel="stylesheet" href="css/workspaces.css?v=16" />
-  <link rel="stylesheet" href="css/viewer.css?v=16" />
-  <link rel="stylesheet" href="css/settings.css?v=16" />
-  <link rel="stylesheet" href="css/mobile.css?v=16" />
-  <link rel="stylesheet" href="css/lock.css?v=16" />
+<script>
+  /* Theme before first paint, so a light-mode user never sees a dark flash.
+     Reads the same storage key the app uses; no dependency on any module. */
+  (function () {
+    try {
+      var p = JSON.parse(localStorage.getItem("xDashboardPrefs") || "{}");
+      var mode = p.themeMode || "system";
+      var dark = mode === "system"
+        ? matchMedia("(prefers-color-scheme: dark)").matches
+        : mode === "dark";
+      document.documentElement.dataset.theme = dark ? "dark" : "light";
+      if (p.motion === "reduced") document.documentElement.dataset.motion = "reduced";
+    } catch (e) { /* first run: dark is the stylesheet default */ }
+  })();
+</script>
 </head>
-<body class="is-booting">
-  <a class="skip" href="#stage">Skip to your archive</a>
 
-  <div class="app">
-    <!-- Navigation rail (desktop / tablet). Collapses to .navbar below 720px. -->
-    <nav class="rail" id="rail" aria-label="Workspaces"></nav>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
 
-    <div class="work">
-      <header class="topbar" id="topbar" data-scrolled="false"></header>
-      <main class="stage" id="stage" tabindex="-1"></main>
+<div class="shell" id="shell" hidden>
+  <header class="topbar" id="topbar">
+    <a class="brand" href="#/home" aria-label="Archive — home">
+      <span class="brand__mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M5 3h14a1 1 0 0 1 1 1v17l-8-4.2L4 21V4a1 1 0 0 1 1-1Z"/></svg>
+      </span>
+      <span class="brand__word">Archive</span>
+    </a>
+
+    <button class="topbar__search" id="openPalette" type="button" aria-keyshortcuts="Meta+K Control+K">
+      <span class="topbar__search-icon" aria-hidden="true"></span>
+      <span class="topbar__search-label">Search your archive</span>
+      <kbd class="topbar__search-kbd" aria-hidden="true">/</kbd>
+    </button>
+
+    <div class="topbar__actions">
+      <button class="icon-btn" id="themeToggle" type="button" aria-label="Switch to light theme"></button>
+      <button class="icon-btn" id="menuBtn" type="button" aria-label="Archive settings" aria-haspopup="dialog"></button>
+    </div>
+  </header>
+
+  <nav class="nav" id="nav" aria-label="Sections"></nav>
+
+  <main class="stage" id="main" tabindex="-1"></main>
+</div>
+
+<!-- Skeleton: painted by the stylesheet alone, before any JS module resolves.
+     Its geometry matches the real Home layout, so content swaps in with no
+     layout shift. Removed the moment the router mounts a view. -->
+<div class="boot" id="boot" aria-hidden="true">
+  <div class="boot__bar"><span></span></div>
+  <div class="boot__body">
+    <div class="sk sk--line sk--w40"></div>
+    <div class="sk sk--line sk--w70"></div>
+    <div class="sk sk--hero"></div>
+    <div class="sk sk--line sk--w25"></div>
+    <div class="sk-row">
+      <div class="sk sk--tile"></div><div class="sk sk--tile"></div><div class="sk sk--tile"></div>
+    </div>
+    <div class="sk sk--line sk--w25"></div>
+    <div class="sk-row">
+      <div class="sk sk--tile"></div><div class="sk sk--tile"></div><div class="sk sk--tile"></div>
     </div>
   </div>
+</div>
 
-  <!-- Bottom navigation (compact windows only). -->
-  <nav class="navbar" id="navbar" aria-label="Workspaces"></nav>
-
-  <!-- One live region for every transient message. -->
-  <div class="m3e-snackbar" id="snackbar" role="status" aria-live="polite" data-open="false">
-    <span class="m3e-snackbar__text"></span>
-    <button type="button" class="m3e-snackbar__action" hidden></button>
+<!-- Hard failure surface. The old app left the user on a blank page if boot()
+     threw; this is what they see instead. -->
+<div class="crash" id="crash" hidden>
+  <div class="crash__card">
+    <h1>Something went wrong while opening your archive</h1>
+    <p id="crashMsg" class="crash__msg"></p>
+    <pre id="crashStack" class="crash__stack" hidden></pre>
+    <div class="crash__actions">
+      <button class="btn btn--primary" id="crashRetry" type="button">Try again</button>
+      <button class="btn" id="crashReset" type="button">Reset local data</button>
+    </div>
+    <p class="crash__hint">
+      Your saved bookmarks are untouched — this is a rendering error, not data loss.
+    </p>
   </div>
+</div>
 
-  <!-- Shared layer: colour engine, theme runtime, interaction primitives,
-       media helpers, video controls. Order matters — theme.js needs color.js. -->
-  <script src="m3e/color.js?v=16"></script>
-  <script src="m3e/theme.js?v=16"></script>
-  <script src="m3e/interactions.js?v=16"></script>
-  <script src="m3e/media.js?v=16"></script>
-  <script src="m3e/video-controls.js?v=16"></script>
+<noscript>
+  <div class="crash"><div class="crash__card">
+    <h1>JavaScript is required</h1>
+    <p>Your archive is indexed and searched entirely on this device, which needs JavaScript enabled.</p>
+  </div></div>
+</noscript>
 
-  <!-- Data layer. demo.js only seeds anything outside the extension. -->
-  <script src="js/demo.js?v=16"></script>
-  <script src="js/store.js?v=16"></script>
-  <script src="js/library.js?v=16"></script>
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
 
-  <!-- Product layer. -->
-  <script src="js/ui.js?v=16"></script>
-  <script src="js/mobile.js?v=16"></script>
-  <script src="js/state.js?v=16"></script>
-  <script src="js/card.js?v=16"></script>
-  <script src="js/viewer.js?v=16"></script>
-  <script src="js/views/discover.js?v=16"></script>
-  <script src="js/views/library.js?v=16"></script>
-  <script src="js/views/watch.js?v=16"></script>
-  <script src="js/views/settings.js?v=16"></script>
-  <script src="js/views/manage.js?v=16"></script>
-  <script src="js/views/capture.js?v=16"></script>
-  <script src="js/lock.js?v=16"></script>
-  <script src="js/app.js?v=16"></script>
-  <script src="js/pwa.js?v=16"></script>
+<script>
+  /* Native ES modules need an http(s) origin. Opening this file straight off
+     the disk used to fail silently; now it says exactly what to do. */
+  if (location.protocol === "file:") {
+    document.getElementById("boot").hidden = true;
+    var c = document.getElementById("crash");
+    c.hidden = false;
+    document.getElementById("crashMsg").textContent =
+      "This app was opened directly from the file system, so the browser blocks its modules and its data file.";
+    document.getElementById("crashStack").hidden = false;
+    document.getElementById("crashStack").textContent =
+      "Serve the folder over http instead:\n\n  npx serve .\n\nthen open the printed address.";
+    document.getElementById("crashRetry").hidden = true;
+  }
+</script>
+<script type="module" src="src/main.js"></script>
 </body>
 </html>

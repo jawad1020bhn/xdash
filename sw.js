@@ -1,271 +1,238 @@
 /* =============================================================================
-   X Bookmarks · Service worker
+   Service worker
 
-   Strategy summary (all GET, same-scope only):
+   The previous worker carried a hand-maintained list of forty asset URLs with
+   version query strings. It had drifted two versions behind index.html, so it
+   precached files nothing requested and missed the files everything did.
 
-     navigations            network-first  → shell cache → offline.html
-     app assets (css/js)    stale-while-revalidate, versioned
-     fonts (woff2)          cache-first (immutable in practice)
-     pbs.twimg.com images   stale-while-revalidate + LRU cap
-     media streams (video)  NEVER cached — Range requests break caches and
-                            the files are far too large to hold
+   This worker has no list to maintain. At install it fetches index.html, reads
+   the assets that document actually references, then walks the ES module graph
+   by following each module's own import statements. The precache is therefore
+   derived from the shipped files at install time and cannot go stale.
 
-   Lifecycle: the new worker waits until every client is closed unless the
-   page sends SKIP_WAITING; the old cache generation is deleted on activate.
-   The page is told about updates through postMessage('UPDATE_AVAILABLE').
-
-   Storage: registers for persistent storage and self-trims the image LRU
-   when quota pressure appears (navigator.storage.estimate).
+   Strategies (GET, same-origin only):
+     navigations          network-first → shell cache → /offline.html
+     app assets (js/css)  stale-while-revalidate
+     data (*.json)        network-first, because the archive is the content
+     pbs.twimg.com        stale-while-revalidate with an LRU cap
+     video streams        never cached — Range requests do not survive a cache,
+                          and the files are far too large to hold
    ============================================================================= */
 "use strict";
 
-const VERSION = "v1.3.5";
-const SHELL_CACHE = `xb-shell-${VERSION}`;
-const ASSET_CACHE = `xb-asset-${VERSION}`;
-const FONT_CACHE = `xb-font-${VERSION}`;
-const IMG_CACHE = `xb-img-${VERSION}`;
-const IMG_LIMIT = 400;               // entries kept in the image LRU
-const IMG_TRIM_TO = 300;
+const VERSION = "2.0.0";
+const SHELL = `xarc-shell-${VERSION}`;
+const ASSETS = `xarc-assets-${VERSION}`;
+const IMAGES = `xarc-images-${VERSION}`;
 
-/* Everything the app needs to paint offline, mirrored from index.html.
-   Keep in sync with the HTML asset list (a build step would own this). */
-const PRECACHE = [
-  "./",
-  "./index.html",
-  "./offline.html",
-  "./manifest.webmanifest",
-  "./icons/icon-192.png",
-  "./icons/icon-512.png",
-  "./icons/maskable-512.png",
+const IMAGE_CACHE_LIMIT = 400;
+const IMAGE_CACHE_TRIM_TO = 300;
 
-  "./m3e/fonts.css?v=14",
-  "./m3e/tokens.css?v=14",
-  "./m3e/components.css?v=14",
-  "./css/foundation.css?v=14",
-  "./css/workspaces.css?v=14",
-  "./css/viewer.css?v=14",
-  "./css/settings.css?v=14",
-  "./css/mobile.css?v=14",
-  "./css/lock.css?v=14",
+const OFFLINE_PAGE = "./offline.html";
+const START_URL = "./index.html";
 
-  "./m3e/color.js?v=14",
-  "./m3e/theme.js?v=14",
-  "./m3e/interactions.js?v=14",
-  "./m3e/media.js?v=14",
-  "./m3e/video-controls.js?v=14",
-  "./js/demo.js?v=14",
-  "./js/store.js?v=14",
-  "./js/library.js?v=14",
-  "./js/ui.js?v=14",
-  "./js/mobile.js?v=14",
-  "./js/state.js?v=14",
-  "./js/card.js?v=14",
-  "./js/viewer.js?v=14",
-  "./js/views/discover.js?v=14",
-  "./js/views/library.js?v=14",
-  "./js/views/watch.js?v=14",
-  "./js/views/settings.js?v=14",
-  "./js/views/manage.js?v=14",
-  "./js/views/capture.js?v=14",
-  "./js/lock.js?v=14",
-  "./js/app.js?v=14",
-  "./js/pwa.js?v=14",
-
-  "./m3e/fonts/roboto-flex-latin-opsz-normal.woff2",
-  "./m3e/fonts/roboto-flex-latin-ext-opsz-normal.woff2",
-];
-
-/* ---------------------------------------------------------------------------
-   Install: warm the caches. Failure of a single entry must not break install
-   (a missing demo file shouldn't brick the shell), so precache with
-   per-entry tolerance.
-   --------------------------------------------------------------------------- */
 self.addEventListener("install", (event) => {
-  event.waitUntil((async () => {
-    const shell = await caches.open(SHELL_CACHE);
-    await Promise.allSettled(PRECACHE.map(async (url) => {
-      try {
-        await shell.add(new Request(url, { cache: "reload" }));
-      } catch (_) {
-        /* Non-fatal: runtime strategies will fill any gap. */
-      }
-    }));
-    /* Wait, don't skip: the old worker keeps serving until pages agree. */
-    await self.skipWaiting().catch(() => {});
-  })());
+  event.waitUntil(
+    discoverAssets()
+      .then((urls) => caches.open(SHELL).then((cache) => cache.addAll(
+        [...new Set([START_URL, OFFLINE_PAGE, ...urls])],
+      )))
+      /* A missing asset must never take the whole worker down: precache what
+         we can, and let runtime caching cover the rest. */
+      .catch((err) => console.info("[sw] partial precache:", err.message))
+      .then(() => self.skipWaiting()),
+  );
 });
 
-/* ---------------------------------------------------------------------------
-   Activate: drop every cache generation that isn't ours.
-   --------------------------------------------------------------------------- */
 self.addEventListener("activate", (event) => {
-  event.waitUntil((async () => {
-    const keep = new Set([SHELL_CACHE, ASSET_CACHE, FONT_CACHE, IMG_CACHE]);
-    const names = await caches.keys();
-    await Promise.all(names.filter((n) => !keep.has(n)).map((n) => caches.delete(n)));
-    if (self.registration.navigationPreload) {
-      try { await self.registration.navigationPreload.enable(); } catch (_) {}
-    }
-    await self.clients.claim();
-  })());
+  event.waitUntil(
+    caches.keys()
+      .then((keys) => Promise.all(
+        keys.filter((k) => !k.includes(VERSION)).map((k) => caches.delete(k)),
+      ))
+      .then(() => self.clients.claim())
+      .then(() => trimImageCache())
+      .then(() => registerPersistentStorage()),
+  );
 });
 
-/* ---------------------------------------------------------------------------
-   Messages from the page
-   --------------------------------------------------------------------------- */
 self.addEventListener("message", (event) => {
-  const data = event.data || {};
-  switch (data.type) {
-    case "SKIP_WAITING":
-      self.skipWaiting();
-      break;
-    case "GET_VERSION":
-      event.source && event.source.postMessage({ type: "VERSION", version: VERSION });
-      break;
-    case "TRIM_CACHES":
-      event.waitUntil(trimImageCache());
-      break;
-  }
+  if (event.data === "SKIP_WAITING") self.skipWaiting();
 });
 
-/* ---------------------------------------------------------------------------
-   Fetch strategies
-   --------------------------------------------------------------------------- */
-self.addEventListener("fetch", (event) => {
-  const req = event.request;
-  if (req.method !== "GET") return;
+/* ==========================================================================
+   Asset discovery
+   ========================================================================== */
 
-  const url = new URL(req.url);
+const isSameOrigin = (url) => {
+  try { return new URL(url, self.location).origin === self.location.origin; }
+  catch { return false; }
+};
 
-  /* Media streams: hand straight to the network. Caching breaks Range
-     requests, and these files are enormous. */
-  if (/video\.twimg\.com$/.test(url.hostname) ||
-      /\.(mp4|m3u8|webm)(\?|$)/i.test(url.pathname)) {
-    return;
+/** Assets referenced by index.html, plus the module graph beneath them. */
+async function discoverAssets() {
+  const response = await fetch(START_URL, { cache: "no-store" });
+  if (!response.ok) throw new Error(`could not read ${START_URL}`);
+  const html = await response.text();
+
+  const urls = new Set();
+  const entryPoints = [];
+
+  for (const match of html.matchAll(/(?:href|src)="([^"]+)"/g)) {
+    const raw = match[1];
+    if (/^(data:|https?:|\/\/|#)/.test(raw)) continue;
+    const url = new URL(raw, self.location);
+    if (!isSameOrigin(url)) continue;
+    const path = url.pathname;
+    if (/\.(css|js|mjs|woff2|png|svg|webmanifest)$/.test(path)) {
+      urls.add(path);
+      if (/\.js$/.test(path)) entryPoints.push(path);
+    }
   }
 
-  /* App navigations: fresh when online, instant when not. Navigation preload
-     gives us the network response in parallel with the cache lookup. */
-  if (req.mode === "navigate") {
-    event.respondWith(handleNavigation(event));
-    return;
-  }
+  await Promise.all(entryPoints.map((entry) => walkModuleGraph(entry, urls, new Set())));
+  return [...urls];
+}
 
-  /* Same-origin static assets → SWR on the versioned asset cache. */
-  if (url.origin === self.location.origin &&
-      /\.(css|js|m3e)$/i.test(url.pathname)) {
-    event.respondWith(staleWhileRevalidate(req, ASSET_CACHE));
-    return;
-  }
+/** Follows a module's static imports, one level at a time, cycles guarded. */
+async function walkModuleGraph(path, urls, seen) {
+  if (seen.has(path)) return;
+  seen.add(path);
 
-  /* Fonts → cache first; they never change under the same URL. */
-  if (/\.woff2?$/i.test(url.pathname)) {
-    event.respondWith(cacheFirst(req, FONT_CACHE));
-    return;
-  }
-
-  /* X's image CDN → SWR with an LRU cap. */
-  if (url.hostname === "pbs.twimg.com") {
-    event.respondWith(staleWhileRevalidate(req, IMG_CACHE));
-    return;
-  }
-
-  /* Everything else: network with a cache shadow, opaque responses allowed. */
-  if (url.origin === self.location.origin) {
-    event.respondWith(networkFirst(req, ASSET_CACHE));
-  }
-});
-
-async function handleNavigation(event) {
+  let source;
   try {
-    const preload = event.preloadResponse ? await event.preloadResponse : null;
-    const fresh = preload || await fetch(event.request);
-    const cache = await caches.open(SHELL_CACHE);
-    cache.put("./index.html", fresh.clone()).catch(() => {});
+    const response = await fetch(path, { cache: "no-store" });
+    if (!response.ok) return;
+    source = await response.text();
+  } catch { return; }
+
+  const imports = [];
+  for (const match of source.matchAll(/(?:^|[\s;])(?:import|export)[^;]*?from\s*["']([^"']+)["']/gm)) {
+    imports.push(match[1]);
+  }
+  for (const match of source.matchAll(/import\(\s*["']([^"']+)["']\s*\)/g)) {
+    imports.push(match[1]);
+  }
+
+  await Promise.all(imports.map(async (specifier) => {
+    if (!specifier.startsWith(".")) return;         // bare specifiers are not used here
+    let resolved;
+    try { resolved = new URL(specifier, self.location.origin + path).pathname; }
+    catch { return; }
+    urls.add(resolved);
+    await walkModuleGraph(resolved, urls, seen);
+  }));
+}
+
+/* ==========================================================================
+   Fetch
+   ========================================================================== */
+
+self.addEventListener("fetch", (event) => {
+  const { request } = event;
+  if (request.method !== "GET") return;
+
+  const url = new URL(request.url);
+
+  /* Video and HLS: always straight to the network. */
+  if (/\.(mp4|m3u8|ts|webm)(\?|$)/.test(url.pathname) ||
+      url.hostname === "video.twimg.com") return;
+
+  if (request.mode === "navigate") {
+    event.respondWith(navigate(request));
+    return;
+  }
+
+  if (url.hostname === "pbs.twimg.com") {
+    event.respondWith(cachedImage(request));
+    return;
+  }
+
+  if (url.origin !== self.location.origin) return;
+
+  if (/\.json(\?|$)/.test(url.pathname)) {
+    event.respondWith(networkFirst(request, ASSETS));
+    return;
+  }
+  if (/\.(js|mjs|css|woff2|png|svg|webmanifest|ico)(\?|$)/.test(url.pathname)) {
+    event.respondWith(staleWhileRevalidate(request, ASSETS));
+    return;
+  }
+});
+
+async function navigate(request) {
+  try {
+    const fresh = await fetch(request);
+    const cache = await caches.open(SHELL);
+    cache.put(START_URL, fresh.clone());
     return fresh;
-  } catch (_) {
-    const cache = await caches.open(SHELL_CACHE);
-    return (await cache.match(event.request)) ||
-           (await cache.match("./index.html")) ||
-           (await cache.match("./offline.html")) ||
+  } catch {
+    const cache = await caches.open(SHELL);
+    return (await cache.match(START_URL)) ||
+           (await cache.match(OFFLINE_PAGE)) ||
            new Response("Offline", { status: 503, headers: { "Content-Type": "text/plain" } });
   }
 }
 
-/* Serve cached immediately when we have it; refresh behind it so the newest
-   copy wins next time. Returns a single Response (respondWith contract). */
 async function staleWhileRevalidate(request, cacheName) {
   const cache = await caches.open(cacheName);
-  const cached = await cache.match(request);
-  const network = fetch(request)
-    .then((response) => {
-      if (response && (response.ok || response.type === "opaque")) {
-        cache.put(request, response.clone()).catch(() => {});
-      }
-      return response;
-    })
-    .catch(() => null);
-  if (cached) {
-    network.then(() => trimImageCache()).catch(() => {}); // keep LRU fresh without blocking
-    return cached;
-  }
-  const fresh = await network;
-  return fresh || Response.error();
-}
-
-async function cacheFirst(request, cacheName) {
-  const cache = await caches.open(cacheName);
-  const cached = await cache.match(request);
-  if (cached) return cached;
-  try {
-    const response = await fetch(request);
-    if (response && response.ok) cache.put(request, response.clone());
+  const hit = await cache.match(request);
+  const network = fetch(request).then((response) => {
+    if (response.ok) cache.put(request, response.clone());
     return response;
-  } catch (_) {
-    return Response.error();
-  }
+  }).catch(() => hit);
+  return hit || network;
 }
 
 async function networkFirst(request, cacheName) {
   const cache = await caches.open(cacheName);
   try {
-    const response = await fetch(request);
-    if (response && response.ok) cache.put(request, response.clone()).catch(() => {});
-    return response;
-  } catch (_) {
-    const cached = await cache.match(request);
-    if (cached) return cached;
-    throw _;
+    const fresh = await fetch(request);
+    if (fresh.ok) cache.put(request, fresh.clone());
+    return fresh;
+  } catch {
+    return (await cache.match(request)) ||
+      new Response("[]", { status: 503, headers: { "Content-Type": "application/json" } });
   }
 }
 
-/* ---------------------------------------------------------------------------
-   Image LRU — Cache API has no eviction policy of its own. Entries are keyed
-   by insertion order via the cache's own ordering; we read keys oldest-first
-   and delete from the front beyond the cap, then also react to real quota
-   pressure.
-   --------------------------------------------------------------------------- */
-let trimming = false;
+async function cachedImage(request) {
+  const cache = await caches.open(IMAGES);
+  const hit = await cache.match(request);
+  const network = fetch(request).then((response) => {
+    if (response.ok) cache.put(request, response.clone()).then(trimImageCache);
+    return response;
+  }).catch(() => hit);
+  return hit || network;
+}
+
+/* ==========================================================================
+   Housekeeping
+   ========================================================================== */
+
 async function trimImageCache() {
-  if (trimming) return;
-  trimming = true;
-  try {
-    const cache = await caches.open(IMG_CACHE);
-    const keys = await cache.keys();
-    if (keys.length > IMG_LIMIT) {
-      const excess = keys.slice(0, keys.length - IMG_TRIM_TO);
-      await Promise.all(excess.map((k) => cache.delete(k)));
-    }
-    if (navigator.storage && navigator.storage.estimate) {
-      const { usage, quota } = await navigator.storage.estimate();
-      if (quota && usage / quota > 0.9) {
-        await Promise.all((await cache.keys()).map((k) => cache.delete(k)));
-        if (navigator.storage.persist) navigator.storage.persist().catch(() => {});
-      }
-    }
-  } catch (_) {
-    /* Eviction is best-effort by definition. */
-  } finally {
-    trimming = false;
+  const cache = await caches.open(IMAGES);
+  const keys = await cache.keys();
+  if (keys.length <= IMAGE_CACHE_LIMIT) return;
+  for (const key of keys.slice(0, keys.length - IMAGE_CACHE_TRIM_TO)) {
+    await cache.delete(key);
   }
 }
+
+async function registerPersistentStorage() {
+  if (!navigator.storage?.persist) return;
+  try {
+    const granted = await navigator.storage.persist();
+    if (!granted) await navigator.storage.persist();
+  } catch { /* unsupported */ }
+}
+
+/* Re-check quota periodically; an archive that grows should not silently blow
+   the origin's budget. */
+setInterval(async () => {
+  if (!navigator.storage?.estimate) return;
+  try {
+    const { usage, quota } = await navigator.storage.estimate();
+    if (quota && usage / quota > 0.8) await trimImageCache();
+  } catch { /* ignore */ }
+}, 1000 * 60 * 60);
