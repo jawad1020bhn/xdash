@@ -1,15 +1,15 @@
 {
-  "name": "X Bookmarks — Editorial Visual Archive",
-  "short_name": "X Archive",
-  "description": "A personal visual archive of everything you saved on X: discover, browse and watch your captured media.",
-  "id": "/dashboard/",
+  "name": "Archive — your saved X media",
+  "short_name": "Archive",
+  "description": "A fast, private, offline-first visual archive of everything you saved on X.",
+  "id": "/",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "display_override": ["fullscreen", "window-controls-overlay", "standalone", "minimal-ui"],
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
   "orientation": "any",
-  "background_color": "#FAF9FC",
-  "theme_color": "#FAF9FC",
+  "background_color": "#0B0B0E",
+  "theme_color": "#0B0B0E",
   "lang": "en",
   "dir": "ltr",
   "categories": ["productivity", "photo", "social"],
@@ -20,25 +20,25 @@
   ],
   "shortcuts": [
     {
-      "name": "Watch feed",
-      "url": "./index.html#w=watch",
-      "description": "Jump straight into the immersive video feed"
+      "name": "Watch",
+      "short_name": "Watch",
+      "url": "./index.html#/watch",
+      "description": "Open the immersive video feed"
     },
     {
       "name": "Library",
-      "url": "./index.html#w=library",
-      "description": "Browse and filter everything you've saved"
+      "short_name": "Library",
+      "url": "./index.html#/library",
+      "description": "Browse and search everything you saved"
     },
     {
-      "name": "Import / Manage",
-      "url": "./index.html#w=manage",
-      "description": "Move your archive in and out"
+      "name": "Unseen",
+      "short_name": "Unseen",
+      "url": "./index.html#/home",
+      "description": "Pick up with what you have not opened"
     }
   ],
   "launch_handler": {
-    "client_mode": "focus-existing"
-  },
-  "edge_side_panel": {
-    "preferred_width": 420
+    "client_mode": ["focus-existing", "auto"]
   }
 }

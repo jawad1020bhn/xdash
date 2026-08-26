@@ -1,9 +1,15 @@
 {
-  "name": "x-bookmarks-dashboard",
-  "version": "1.0.0",
+  "name": "x-bookmarks-archive",
+  "version": "2.0.0",
   "private": true,
-  "description": "Editorial visual archive for X bookmarks — static, build-free.",
+  "type": "module",
+  "description": "A fast, offline-first visual archive of X bookmarks. Static, build-free.",
   "scripts": {
-    "start": "npx --yes serve -l 3000 ."
+    "start": "node tools/serve.js",
+    "build": "node tools/build-slim.js",
+    "test": "node tools/check.js"
+  },
+  "devDependencies": {
+    "jsdom": "^27.0.0"
   }
 }

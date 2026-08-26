@@ -1,0 +1,175 @@
+/* =============================================================================
+   Tokens — the only place a value is allowed to be decided.
+
+   Everything downstream (base, components, views, and the JS) reads from here.
+   Nothing in this file knows what a button is; it only knows what "surface",
+   "accent" and "a comfortable tap" mean.
+
+   Dark is the default because this is a media archive: 1,205 photos and videos
+   are the product, and they read best on a near-black canvas. Light is a real
+   theme, not an inversion.
+   ============================================================================= */
+
+:root {
+  /* ---- Accent -------------------------------------------------------------
+     One accent, used for exactly four jobs: the active destination, focus,
+     progress, and selection. If a fifth use appears, that is a bug. */
+  --accent-500: #7a6cff;
+  --accent-400: #8f83ff;
+  --accent-600: #6553f0;
+
+  --danger: #ff5c5c;
+  --danger-soft: color-mix(in oklab, var(--danger) 16%, transparent);
+  --positive: #35d6a4;
+
+  /* ---- Shape -------------------------------------------------------------- */
+  --r-xs: 8px;
+  --r-sm: 12px;
+  --r-md: 16px;
+  --r-lg: 22px;
+  --r-pill: 999px;
+
+  /* ---- Touch --------------------------------------------------------------
+     One floor for every interactive surface. WCAG 2.5.8 asks for 24px; a thumb
+     needs 44. Nothing interactive in this app is allowed to go below this. */
+  --tap: 44px;
+  --tap-lg: 52px;
+
+  /* ---- Spacing (4px base) ------------------------------------------------- */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-10: 40px;
+  --s-12: 48px;
+
+  /* ---- Motion -------------------------------------------------------------
+     Three durations and two curves. Nothing else is permitted, which is what
+     keeps the product feeling like one object rather than twelve. */
+  --t-fast: 120ms;
+  --t-ui: 200ms;
+  --t-slow: 380ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.32, 0.64, 1);
+
+  /* ---- Shell metrics ------------------------------------------------------ */
+  --topbar-h: 56px;
+  --nav-h: 60px;
+  --rail-w: 76px;
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+
+  /* ---- Type ---------------------------------------------------------------
+     The previous build shipped 144 KB of Roboto Flex. A variable optical-size
+     face is a genuine improvement over a static one, but not over the system
+     UI face at 144 KB on a phone, so this stack asks the platform for its best
+     UI typeface and nothing is downloaded. */
+  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  color-scheme: dark;
+}
+
+/* ==========================================================================
+   Dark (default)
+   ========================================================================== */
+:root,
+:root[data-theme="dark"] {
+  --bg: #0b0b0e;
+  --bg-raised: #121218;
+  --surface: #15151c;
+  --surface-2: #1c1c25;
+  --surface-3: #24242f;
+  --chrome: color-mix(in oklab, #0b0b0e 82%, transparent);
+
+  --text: #f2f2f7;
+  --text-2: #a7a7b8;
+  --text-3: #76768a;
+
+  --line: #26262f;
+  --line-2: #33333f;
+
+  --accent: var(--accent-400);
+  --on-accent: #0b0b0e;
+  --accent-soft: color-mix(in oklab, var(--accent-400) 18%, transparent);
+  --accent-line: color-mix(in oklab, var(--accent-400) 46%, transparent);
+
+  --scrim: color-mix(in oklab, #000 72%, transparent);
+  --media-bg: #0f0f14;
+
+  --sh-1: 0 1px 2px rgb(0 0 0 / 0.5);
+  --sh-2: 0 8px 24px -8px rgb(0 0 0 / 0.7), 0 2px 6px -2px rgb(0 0 0 / 0.5);
+  --sh-3: 0 24px 64px -16px rgb(0 0 0 / 0.8), 0 8px 24px -12px rgb(0 0 0 / 0.6);
+
+  --sk: #1a1a22;
+  --sk-hi: #24242e;
+}
+
+/* ==========================================================================
+   Light — a warm paper, not a white inversion. Contrast ratios are tuned for
+   the muted tiers, which is where inversions usually fail.
+   ========================================================================== */
+:root[data-theme="light"] {
+  --bg: #fbfbfd;
+  --bg-raised: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f2f2f6;
+  --surface-3: #e9e9f0;
+  --chrome: color-mix(in oklab, #fbfbfd 84%, transparent);
+
+  --text: #14141a;
+  --text-2: #55555f;
+  --text-3: #6d6d7a;
+
+  --line: #e4e4ea;
+  --line-2: #d3d3dc;
+
+  --accent: var(--accent-600);
+  --on-accent: #ffffff;
+  --accent-soft: color-mix(in oklab, var(--accent-600) 12%, transparent);
+  --accent-line: color-mix(in oklab, var(--accent-600) 38%, transparent);
+
+  --scrim: color-mix(in oklab, #101018 42%, transparent);
+  --media-bg: #ececF2;
+
+  --sh-1: 0 1px 2px rgb(18 16 40 / 0.07);
+  --sh-2: 0 8px 24px -10px rgb(18 16 40 / 0.16), 0 2px 6px -3px rgb(18 16 40 / 0.08);
+  --sh-3: 0 24px 56px -18px rgb(18 16 40 / 0.26), 0 8px 20px -12px rgb(18 16 40 / 0.14);
+
+  --sk: #e9e9ef;
+  --sk-hi: #f4f4f8;
+
+  color-scheme: light;
+}
+
+/* ==========================================================================
+   High contrast — driven by the OS setting, not a preference buried in a
+   settings sheet. Deepens ink and rules; never repaints the accent.
+   ========================================================================== */
+@media (prefers-contrast: more) {
+  :root[data-theme="dark"] { --text: #fff; --text-2: #c8c8d6; --line: #3c3c4a; --line-2: #4d4d5e; }
+  :root[data-theme="light"] { --text: #000; --text-2: #2c2c34; --line: #b9b9c4; --line-2: #9d9daa; }
+}
+
+/* ==========================================================================
+   Density — one variable moves the whole grid.
+   ========================================================================== */
+:root[data-density="compact"] { --tile-min: 128px; --gap: 4px; --tile-radius: var(--r-xs); }
+:root[data-density="cozy"]    { --tile-min: 168px; --gap: 8px; --tile-radius: var(--r-sm); }
+:root[data-density="roomy"]   { --tile-min: 232px; --gap: 12px; --tile-radius: var(--r-md); }
+:root { --tile-min: 168px; --gap: 8px; --tile-radius: var(--r-sm); }
+
+/* ==========================================================================
+   Motion off — honoured from the OS and from the settings sheet alike.
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  :root { --t-fast: 1ms; --t-ui: 1ms; --t-slow: 1ms; }
+}
+:root[data-motion="reduced"] { --t-fast: 1ms; --t-ui: 1ms; --t-slow: 1ms; }

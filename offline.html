@@ -1,66 +1,56 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Offline · X Bookmarks</title>
-  <style>
-    :root { color-scheme: light dark; }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      min-height: 100dvh;
-      display: grid;
-      place-items: center;
-      padding: 24px;
-      background: #faf9fc;
-      color: #15151b;
-      font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    }
-    @media (prefers-color-scheme: dark) {
-      body { background: #0b0b0f; color: #f3f3f8; }
-    }
-    main { max-width: 380px; text-align: center; display: grid; justify-items: center; gap: 14px; }
-    .glyph {
-      width: 56px; height: 56px;
-      display: grid; place-items: center;
-      border-radius: 16px;
-      background: #5b4cf5;
-    }
-    h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; margin: 0; }
-    p { margin: 0; opacity: 0.72; line-height: 1.6; }
-    button {
-      margin-top: 8px;
-      height: 40px;
-      padding-inline: 20px;
-      border: none;
-      border-radius: 10px;
-      background: #5b4cf5;
-      color: #fff;
-      font: inherit;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    button:hover { filter: brightness(0.94); }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0B0B0E" />
+<meta name="color-scheme" content="dark light" />
+<title>Offline · Archive</title>
+<link rel="icon" href="icons/icon-192.png" />
+<style>
+  :root {
+    color-scheme: dark light;
+    --bg: #0b0b0e; --surface: #15151c; --text: #f2f2f7; --text-2: #a7a7b8;
+    --line: #26262f; --accent: #8f83ff; --on-accent: #0b0b0e;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg: #fbfbfd; --surface: #fff; --text: #14141a; --text-2: #55555f; --line: #e4e4ea; --accent: #6553f0; --on-accent: #fff; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100dvh; display: grid; place-items: center; padding: 24px;
+    background: var(--bg); color: var(--text);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .card {
+    width: min(420px, 100%); padding: 32px; text-align: center;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 22px;
+  }
+  .mark {
+    display: grid; place-items: center; width: 56px; height: 56px; margin: 0 auto 20px;
+    border-radius: 50%; background: color-mix(in oklab, var(--accent) 18%, transparent); color: var(--accent);
+  }
+  h1 { margin: 0 0 8px; font-size: 21px; font-weight: 660; letter-spacing: -0.02em; }
+  p { margin: 0 0 24px; color: var(--text-2); font-size: 14.5px; line-height: 1.5; }
+  button {
+    min-height: 44px; padding: 0 22px; border: 0; border-radius: 999px; cursor: pointer;
+    background: var(--accent); color: var(--on-accent); font: inherit; font-weight: 640;
+  }
+  button:active { transform: scale(0.97); }
+</style>
 </head>
 <body>
-  <main>
-    <div class="glyph" aria-hidden="true">
-      <svg viewBox="0 0 24 24" width="26" height="26" fill="#fff" aria-hidden="true">
-        <path d="M5 3h14a1 1 0 0 1 1 1v17l-8-4-8 4V4a1 1 0 0 1 1-1Z"/>
-      </svg>
-    </div>
-    <h1>You're offline</h1>
+  <main class="card">
+    <span class="mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M5 3h14a1 1 0 0 1 1 1v17l-8-4.2L4 21V4a1 1 0 0 1 1-1Z"/></svg>
+    </span>
+    <h1>You are offline</h1>
     <p>
-      Your archive lives in this browser and your saved media is cached,
-      but this page hasn't been stored yet. Reconnect once and it will
-      open instantly — even with no connection.
+      The shell of your archive is cached here, but the data file was not reached.
+      Reconnect and try again — anything already loaded in this tab is untouched.
     </p>
-    <button type="button">Try again</button>
+    <button type="button" onclick="location.reload()">Try again</button>
   </main>
-  <script>
-    document.querySelector("button").addEventListener("click", () => location.reload());
-  </script>
 </body>
 </html>
