@@ -19,7 +19,7 @@
    ============================================================================= */
 "use strict";
 
-const VERSION = "v1.3.3";
+const VERSION = "v1.3.5";
 const SHELL_CACHE = `xb-shell-${VERSION}`;
 const ASSET_CACHE = `xb-asset-${VERSION}`;
 const FONT_CACHE = `xb-font-${VERSION}`;

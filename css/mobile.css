@@ -45,6 +45,18 @@
   body.is-searching .topbar { z-index: 950; }
   body.is-searching .navbar { translate: -50% calc(100% + 46px); }
 
+  /* A "/" shortcut hint is desktop affordance pollution on a touch device —
+     hide it; the field focuses on tap anyway. */
+  .search__kbd { display: none; }
+  .search__box { align-items: center; }
+  .search__box input { height: 100%; }
+
+  /* The greeting is the page's one typographic voice — but 52px pushes real
+     content below the fold on a phone. Pull it into mobile range. */
+  .greet { padding-block: 18px 2px; }
+  .greet h1 { font-size: clamp(26px, 7vw, 32px); margin: 0 0 6px; }
+  .greet__stats { font-size: 13.5px; }
+
   /* ==========================================================================
      3 · Pull-down search sheet
      --------------------------------------------------------------------------
@@ -710,9 +722,12 @@
    under system bars, buttons may not.
    ========================================================================== */
 @media (max-width: 719px) {
-  .viewer__stage { padding: 52px 4px 76px; }
+  /* Full-bleed: strip the stage padding so the media contacts the edges;
+     the floating chrome (top/foot gradient scrims) protects its own text.
+     A tiny inline inset keeps edge-tap targets off the curved corners. */
+  .viewer__stage { padding: 0; }
   .viewer__frame img,
-  .viewer__frame video { max-height: calc(100dvh - 120px); border-radius: 6px; }
+  .viewer__frame video { max-height: 100dvh; border-radius: 0; }
 }
 
 /* ==========================================================================

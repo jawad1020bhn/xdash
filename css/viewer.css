@@ -691,11 +691,21 @@
 }
 
 @media (max-width: 719px) {
-  .viewer__stage { padding: 56px 8px 92px; }
+  /* Native full-bleed: the media contacts the edges; chrome floats above it
+     (the .viewer__top / __foot gradient scrims already protect the text). */
+  .viewer__stage { padding: 0; }
+  .viewer__frame { width: 100%; height: 100dvh; max-height: 100dvh; }
+  .viewer__frame img, .viewer__frame video {
+    width: 100%;
+    height: 100dvh;
+    max-width: 100vw;
+    max-height: 100dvh;
+    object-fit: contain;
+    border-radius: 0;
+  }
   .viewer__step { width: 56px; }
   .viewer__step > span { width: 38px; height: 38px; }
-  .viewer__frame img, .viewer__frame video { max-height: calc(100dvh - 148px); }
-  .viewer__gallery { inset-block-end: 118px; }
+  .viewer__gallery { inset-block-end: calc(118px + env(safe-area-inset-bottom)); }
   .vbtn__label { display: none; }
   .viewer__top .vbtn--back { width: 36px; padding: 0; justify-content: center; }
   .viewer__cap { -webkit-line-clamp: 2; font-size: 13px; }
