@@ -896,6 +896,15 @@
 
   root.XBApp = app;
 
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
-  else boot();
+  /* Install the password gate (js/lock.js) before the first boot so an
+     existing vault can suspend boot() and show the lock screen. If no vault is
+     set, the gate is a no-op and boot proceeds as before. */
+  if (root.XBLock && root.XBLock.intercept) root.XBLock.intercept(app);
+  else if (root.XBStore && root.XBStore._raw) {
+    // lock.js failed to load — never block the dashboard on a missing gate.
+    console.warn("[lock] lock.js not present; skipping gate.");
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", app.boot);
+  else app.boot();
 })(window);
