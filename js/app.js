@@ -165,7 +165,15 @@
     });
     el.appendChild(h("span.rail__pill", { html: icon(entry.icon, 20) }));
     el.appendChild(h("span", { text: entry.label }));
-    el.addEventListener("click", () => go(entry.id));
+    el.addEventListener("click", () => {
+      /* Haptic confirmation on touch: a short tick as the pill commits to its
+         selected shape. Desktop (fine pointer) gets nothing — there is no motor
+         to tick. Guarded so a missing Vibration API is a silent no-op. */
+      if (root.XBMobile && root.XBMobile.isTouch() && root.navigator.vibrate) {
+        root.navigator.vibrate(10);
+      }
+      go(entry.id);
+    });
     return el;
   }
 
@@ -200,7 +208,12 @@
     });
     more.appendChild(h("span.rail__pill", { html: icon("more", 20) }));
     more.appendChild(h("span", { text: "More" }));
-    more.addEventListener("click", () => root.XBMobile.openMore(app));
+    more.addEventListener("click", () => {
+      if (root.XBMobile && root.XBMobile.isTouch() && root.navigator.vibrate) {
+        root.navigator.vibrate(10);
+      }
+      root.XBMobile.openMore(app);
+    });
     els.navbar.appendChild(more);
 
     if (root.XBMobile) root.XBMobile.bindNavAutoHide(els.navbar);
@@ -470,6 +483,7 @@
       restoreScroll(false);
     }
     if (root.XBViewer.isOpen()) root.XBViewer.repaint();
+    if (root.XBMobile && root.XBMobile.bindPullToRefresh) root.XBMobile.bindPullToRefresh(app);
   }
 
   function renderWorkspace(w) {

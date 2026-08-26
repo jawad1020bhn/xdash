@@ -60,6 +60,14 @@
      same family by construction, with no opportunity for drift. */
   --focus: var(--accent);
 
+  /* Crisp-surface language: Material 3 elevation is TONAL (a tinted fill +
+     shadow), never translucent/glass. A defined 1px hairline border is the
+     "the surface reads as a solid object" edge — used on every floating
+     chrome, sheet and FAB instead of frosted backdrop blur. */
+  --hairline: color-mix(in srgb, var(--text) 14%, transparent);
+  --solid-1: var(--surface);
+  --solid-2: var(--surface-2);
+  --solid-3: var(--surface-3);
   /* Shape — three radii, no more. Media / surfaces / controls. */
   --r-media: 18px;
   --r-surface: 12px;
@@ -401,7 +409,7 @@ body.is-booting .navbar { opacity: 0; }
 .menu__hint kbd { font: inherit; font-weight: 700; color: var(--text-2); }
 
 /* --- dialogs -------------------------------------------------------------- */
-.m3e-scrim { background: rgb(10 8 20 / 0.44); backdrop-filter: blur(2px); }
+.m3e-scrim { background: rgb(10 8 20 / 0.5); }
 :root[data-scheme="dark"] .m3e-scrim { background: rgb(0 0 0 / 0.62); }
 .m3e-dialog {
   border-radius: var(--r-surface);
@@ -581,8 +589,7 @@ body.is-booting .navbar { opacity: 0; }
   gap: 12px;
   min-height: var(--topbar-h);
   padding: 12px var(--gutter);
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
-  backdrop-filter: saturate(1.4) blur(14px);
+  background: var(--bg);
   transition: border-color var(--t-ui) var(--ease);
   border-block-end: 1px solid transparent;
 }
@@ -805,8 +812,8 @@ body.is-booting .navbar { opacity: 0; }
     justify-content: space-around;
     padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
     border-block-start: 1px solid var(--line);
-    background: color-mix(in srgb, var(--bg) 92%, transparent);
-    backdrop-filter: saturate(1.4) blur(16px);
+    background: var(--bg);
+    border-block-start: 1px solid var(--hairline);
   }
   .navbar__item {
     display: flex;

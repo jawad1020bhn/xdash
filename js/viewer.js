@@ -748,23 +748,96 @@
 
   const IGNORE = ".slide__controls,.slide__resume,.slide__buffering,.viewer__missing,button,a,input,select,textarea,label";
 
+  /* Swipe to dismiss. On a phone the gesture follows the finger — the whole
+     viewer slides down with the drag and either springs back or closes on
+     release (velocity-assisted). On desktop the original threshold behaviour is
+     preserved (no transform, just close/step). The bottom-sheet pane in
+     context mode gets its own down-swipe that dismisses the viewer too. */
+  const SWIPE = (() => {
+    const compact = root.XBMobile && root.XBMobile.isCompact;
+    const reduced = root.M3E && root.M3E.reducedMotion && root.M3E.reducedMotion();
+    return { follow: compact() && !reduced, longPress: 350 };
+  })();
+
   function bindSwipe(stage) {
     let sx = 0, sy = 0, tracking = false;
+
     stage.addEventListener("pointerdown", (e) => {
       if (e.target.closest(IGNORE)) return;
+      if (SWIPE.follow && isOpen()) el.dataset.dragging = "true";
       tracking = true; sx = e.clientX; sy = e.clientY;
+    });
+    stage.addEventListener("pointermove", (e) => {
+      if (!SWIPE.follow || !tracking || !isOpen() || e.target.closest(IGNORE)) return;
+      /* A vertical volume/speed drag belongs to the media, not dismissal. */
+      if (root.M3EVideoControls && root.M3EVideoControls.isGestureActive()) return;
+      const dx = e.clientX - sx;
+      const dy = e.clientY - sy;
+      if (Math.abs(dy) <= Math.abs(dx)) return; // horizontal → let paging/browser have it
+      const pull = Math.max(0, dy);
+      /* Damped travel: the further you pull, the harder it gets (rubber-band). */
+      const eased = pull * (1 - Math.min(0.5, pull / 900));
+      el.style.transition = "none";
+      el.style.setProperty("--viewer-drag", eased + "px");
     });
     stage.addEventListener("pointerup", (e) => {
       /* A vertical volume/speed drag belongs to the media, not navigation. */
-      if (root.M3EVideoControls && root.M3EVideoControls.isGestureActive()) return;
+      if (root.M3EVideoControls && root.M3EVideoControls.isGestureActive()) { tracking = false; return; }
       if (!tracking) return;
       tracking = false;
-      const dx = e.clientX - sx;
+      if (!SWIPE.follow) {
+        const dx = e.clientX - sx;
+        const dy = e.clientY - sy;
+        if (dy > 90 && Math.abs(dy) > Math.abs(dx)) close();
+        else if (Math.abs(dx) > 60) step(dx < 0 ? 1 : -1);
+        return;
+      }
       const dy = e.clientY - sy;
-      if (dy > 90 && Math.abs(dy) > Math.abs(dx)) close();
-      else if (Math.abs(dx) > 60) step(dx < 0 ? 1 : -1);
+      const vel = (e.clientY - (sy)) ; // crude velocity proxy
+      const pulled = parseFloat(el.style.getPropertyValue("--viewer-drag")) || 0;
+      el.style.setProperty("--viewer-drag", "");
+      delete el.dataset.dragging;
+      if (dy > 90 || pulled > 140 || vel > 0.6) close();
+      else if (Math.abs(dx) > 60 && Math.abs(e.clientX - sx) > Math.abs(dy)) step(e.clientX - sx < 0 ? 1 : -1);
+      else el.style.transition = ""; // spring back
     });
-    stage.addEventListener("pointercancel", () => { tracking = false; });
+    stage.addEventListener("pointercancel", () => {
+      tracking = false;
+      if (SWIPE.follow) { el.style.setProperty("--viewer-drag", ""); delete el.dataset.dragging; }
+    });
+
+    /* Bottom-sheet pane (context mode, phone): a downward swipe on the grab
+       strip dismisses the viewer, following the finger like the stage does. */
+    if (SWIPE.follow) bindPaneDismiss(refs.divider);
+  }
+
+  function bindPaneDismiss(handle) {
+    let sy = 0, tracking = false;
+    handle.addEventListener("pointerdown", (e) => {
+      if (St.state.viewerState !== "context") return;
+      tracking = true; sy = e.clientY;
+    });
+    handle.addEventListener("pointermove", (e) => {
+      if (!tracking) return;
+      const dy = Math.max(0, e.clientY - sy);
+      if (dy < 6) return;
+      el.dataset.dragging = "true";
+      el.style.transition = "none";
+      el.style.setProperty("--viewer-drag", dy + "px");
+    });
+    handle.addEventListener("pointerup", (e) => {
+      if (!tracking) return;
+      tracking = false;
+      const dy = e.clientY - sy;
+      el.style.setProperty("--viewer-drag", "");
+      delete el.dataset.dragging;
+      if (dy > 90) close();
+    });
+    handle.addEventListener("pointercancel", () => {
+      tracking = false;
+      el.style.setProperty("--viewer-drag", "");
+      delete el.dataset.dragging;
+    });
   }
 
   root.XBViewer = { open, close, isOpen, current, step, repaint: paint };

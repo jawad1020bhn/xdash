@@ -99,6 +99,7 @@
       type: "button",
       "data-id": item.id,
       "data-type": item.type,
+      "data-unseen": item.unseen && !item.archived ? "1" : "0",
       "aria-label": describe(item),
     });
     if (o.selected) el.classList.add("is-selected");

@@ -84,6 +84,12 @@
 
     const disc = d.discovery;
     const page = h(".discover");
+    /* Pull-to-refresh affordance lives at the top of the feed (filled by
+       js/mobile.js only on touch + compact windows). The .ptr element is
+       inert on desktop, where refresh is the FAB. */
+    page.appendChild(h(".ptr", { "aria-hidden": "true" },
+      h(".ptr__wave", { html: icon("wave", 24) })
+    ));
     page.appendChild(greeting(stats, d, app));
 
     const totalUsable = d.all.filter((i) => !i.archived).length;

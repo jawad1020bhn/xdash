@@ -88,6 +88,65 @@
     sheet("More", list);
   }
 
+  /* --------------------------------------------- pull-to-refresh ---------- */
+  /**
+   * On a compact + touch window, dragging the Discover feed down from the top
+   * loads a new discovery cycle. The gesture is native (touchstart/move/end);
+   * a rAF loop drives the --ptr progress var and the .is-loading state on the
+   * .ptr element that discover.js renders. Desktop keeps its refresh FAB.
+   */
+  function bindPullToRefresh(app) {
+    if (!isCompact() || !isTouch()) return;
+    const stage = document.getElementById("stage");
+    const ptr = document.querySelector(".ptr");
+    if (!stage || !ptr) return;
+    document.documentElement.dataset.ptr = "ready";
+
+    const THRESHOLD = 80;   // distance (px) past which a release fires refresh
+    const MAX = 140;        // visual travel cap
+    let startY = 0, pulling = false, fired = false;
+
+    stage.addEventListener("touchstart", (e) => {
+      if (stage.scrollTop > 0 || fired) return;
+      startY = e.touches[0].clientY;
+      pulling = true;
+      fired = false;
+    }, { passive: true });
+
+    stage.addEventListener("touchmove", (e) => {
+      if (!pulling) return;
+      const dy = e.touches[0].clientY - startY;
+      if (dy <= 0) { ptr.classList.remove("is-active"); ptr.style.setProperty("--ptr", "0"); return; }
+      if (stage.scrollTop > 0) { pulling = false; return; }
+      e.preventDefault(); // claim the overscroll so the page doesn't rubber-band
+      const p = Math.min(1, dy / THRESHOLD);
+      ptr.classList.add("is-active");
+      ptr.style.setProperty("--ptr", String(p));
+    }, { passive: false });
+
+    function release() {
+      if (!pulling) return;
+      pulling = false;
+      const p = parseFloat(ptr.style.getPropertyValue("--ptr") || "0");
+      if (p >= 0.999) {
+        fired = true;
+        ptr.classList.add("is-loading");
+        if (root.XBState && root.XBState.newDiscoveryCycle) root.XBState.newDiscoveryCycle();
+        // brief, honest feedback: hold the wavy loader, then settle
+        setTimeout(() => {
+          ptr.classList.remove("is-loading", "is-active");
+          ptr.style.setProperty("--ptr", "0");
+          fired = false;
+        }, 700);
+      } else {
+        ptr.classList.remove("is-active");
+        ptr.style.setProperty("--ptr", "0");
+      }
+    }
+    stage.addEventListener("touchend", release, { passive: true });
+    stage.addEventListener("touchcancel", release, { passive: true });
+  }
+
   /* --------------------------------------------- dynamic bottom chrome -- */
   /**
    * Scroll down → the bottom nav softly hides; scroll up (or back to the top)
@@ -124,5 +183,5 @@
     show();
   }
 
-  root.XBMobile = { isCompact, isTouch, openMore, sheet, bindNavAutoHide };
+  root.XBMobile = { isCompact, isTouch, openMore, sheet, bindNavAutoHide, bindPullToRefresh };
 })(window);

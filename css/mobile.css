@@ -111,10 +111,9 @@
     translate: -50% 0;
     width: min(430px, calc(100vw - 20px));
     padding: 7px 9px;
-    border: 1px solid var(--line);
+    border: 1px solid var(--hairline);
     border-radius: 26px;
-    background: color-mix(in srgb, var(--elevated) 88%, transparent);
-    backdrop-filter: blur(18px) saturate(1.25);
+    background: var(--surface);
     box-shadow: var(--shadow-2);
     /* Expressive spring on the spatial move; opacity stays an effect. */
     transition: translate var(--spring-move), opacity var(--t-ui) var(--ease);
@@ -195,9 +194,10 @@
     inset-block-end: calc(88px + env(safe-area-inset-bottom));
     max-width: calc(100vw - 24px);
     gap: 2px;
+    border: 1px solid var(--hairline);
     border-radius: 22px;
-    background: color-mix(in srgb, var(--elevated) 90%, transparent);
-    backdrop-filter: blur(16px);
+    background: var(--surface);
+    box-shadow: var(--shadow-2);
   }
   @keyframes bulk-in { from { opacity: 0; translate: -50% 12px; } to { opacity: 1; translate: -50% 0; } }
 
@@ -229,8 +229,7 @@
     padding: 6px 8px;
     border: 1px solid var(--line);
     border-radius: 22px;
-    background: color-mix(in srgb, var(--elevated) 88%, transparent);
-    backdrop-filter: blur(16px) saturate(1.25);
+    background: var(--surface);
     box-shadow: var(--shadow-2);
     transition: translate var(--spring-move), opacity var(--t-ui) var(--ease);
   }
@@ -501,6 +500,207 @@
   0% { --edge: 1; }
   85% { --edge: 1; }
   100% { --edge: 0; }
+}
+
+/* ==========================================================================
+   11 · Pull-to-refresh on Discover — native gesture, M3E feedback
+   ------------------------------------------------------------------------
+   A finger dragged past the top of the feed while at scrollTop 0 loads a new
+   discovery cycle. The indicator is a wavy line (the project's established
+   "wavy loading" motif) that stretches with pull distance and snaps back on
+   release. js/mobile.js drives --ptr (0..1 progress) and .is-loading.
+   Follows the same spring + effect split as the rest of the system: the
+   indicator's travel uses --spring-move, colour/opacity stay effects.
+   ========================================================================== */
+.ptr {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: 0;
+  z-index: 5;
+  height: 0;
+  display: grid;
+  place-items: center;
+  overflow: visible;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--t-ui) var(--ease);
+}
+.ptr.is-active { opacity: 1; }
+.ptr__wave {
+  width: 36px;
+  height: 36px;
+  color: var(--accent);
+  transform: translateY(calc(-8px + var(--ptr, 0) * 46px)) scale(calc(0.7 + var(--ptr, 0) * 0.5));
+  transform-origin: 50% 100%;
+  transition: transform var(--spring-move);
+}
+.ptr.is-loading .ptr__wave { animation: ptr-wave 900ms var(--ease) infinite; }
+[aria-busy="true"] .ptr__wave,
+[data-motion="reduced"] .ptr__wave { animation: none; }
+@keyframes ptr-wave {
+  0%, 100% { transform: translateY(18px) scaleY(0.7); }
+  50% { transform: translateY(30px) scaleY(1.15); }
+}
+
+/* ==========================================================================
+   12 · Discover hero — full-bleed cover, not a side-by-side
+   ------------------------------------------------------------------------
+   On a phone the two-column hero wastes the one thing a phone has in abundance:
+   width. Recompose it as a magazine cover — 16:9 media edge to edge, a tonal
+   scrim lifting the title up off the image, the play affordance as a single
+   confident FAB-style button. The desktop hero is untouched.
+   ========================================================================== */
+@media (max-width: 719px) {
+  .discover__head { position: relative; }
+  .greet { padding-block: 14px 2px; max-width: none; }
+  .greet h1 { font-size: 27px; margin-block-end: 4px; }
+  .greet__stats { font-size: 13px; }
+  .greet__recap { font-size: 12.5px; margin-block-start: 8px; }
+
+  .hero {
+    display: block;
+    margin: 14px 0 8px;
+    border-radius: var(--r-media);
+    overflow: hidden;
+    box-shadow: var(--shadow-2);
+  }
+  .hero__media {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    width: 100%;
+    min-height: 0;
+    border-radius: inherit;
+  }
+  .hero__media img { border-radius: inherit; }
+  /* Tonal scrim so white title text always reads over any frame. */
+  .hero__media::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgb(0 0 0 / 0.74) 0%, rgb(0 0 0 / 0.28) 42%, transparent 72%);
+    pointer-events: none;
+  }
+  .hero__play {
+    /* One confident affordance, lowered into the thumb zone. */
+    inset-block-end: 14px;
+    inset-inline-start: 14px;
+    width: 52px;
+    height: 52px;
+    border-radius: var(--r-pill);
+    background: color-mix(in srgb, var(--accent) 92%, #000);
+    color: var(--on-accent);
+    box-shadow: var(--shadow-2);
+    transition: scale var(--spring-fast), background-color var(--t-micro) var(--ease);
+  }
+  .hero__play > span { background: none; width: auto; height: auto; padding: 0; }
+  .hero__play:active { scale: 0.92; }
+  .hero__bar { inset-inline: 14px; inset-block-end: 8px; width: auto; }
+
+  /* Body lifts ONTO the cover: negative margin pulls it up over the scrim. */
+  .hero__body {
+    position: relative;
+    margin-block-start: -64px;
+    padding: 0 16px 18px;
+    z-index: 2;
+  }
+  .hero__eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 26px;
+    padding: 0 10px;
+    border-radius: var(--r-pill);
+    background: rgb(0 0 0 / 0.42);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  .hero__eyebrow > svg { width: 13px; height: 13px; }
+  .hero__title {
+    color: #fff;
+    font-size: 20px;
+    line-height: 1.22;
+    letter-spacing: -0.014em;
+    margin-block: 8px 6px;
+    text-shadow: 0 1px 12px rgb(0 0 0 / 0.5);
+  }
+  .hero__by { color: rgb(255 255 255 / 0.82); font-size: 13px; text-shadow: 0 1px 6px rgb(0 0 0 / 0.5); }
+  .hero__by img { width: 22px; height: 22px; }
+  .hero__left { color: rgb(255 255 255 / 0.72); font-size: 12px; text-shadow: 0 1px 6px rgb(0 0 0 / 0.5); }
+  .hero__actions { margin-block-start: 12px; }
+  .hero__actions .ctl--accent { background: #fff; color: #15151b; height: 42px; }
+  .hero__actions .ctl--accent:hover { background: rgb(255 255 255 / 0.9); }
+}
+
+/* ==========================================================================
+   13 · Section headers — a sticky chip, bigger type
+   ------------------------------------------------------------------------
+   Each section title becomes a quiet pill "tab" that sticks under the topbar
+   as you scroll the rail, so a phone reader always knows which rail they're
+   in. The eyebrow/subtitle sits beside it. Composes with the existing
+   --topbar-h token so it never collides with the search sheet.
+   ========================================================================== */
+@media (max-width: 719px) {
+  .section { scroll-margin-block-start: calc(var(--topbar-h) + 8px); }
+  .section__head {
+    position: sticky;
+    inset-block-start: calc(var(--topbar-h) - 2px);
+    z-index: 20;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    padding: 10px 4px 8px;
+    background: var(--bg);
+    border-block-end: 1px solid var(--hairline);
+  }
+  .section__titles h2 {
+    font-size: 19px;
+    letter-spacing: -0.014em;
+    line-height: 1.2;
+  }
+  .section__titles p { font-size: 12px; color: var(--text-3); margin-block-start: 2px; }
+  /* The "See all" affordance stays a quiet text button — never a heavy chip. */
+  .section__more,
+  .section__refresh {
+    height: 34px;
+    padding-inline: 10px;
+    font-size: 12.5px;
+    border-radius: var(--r-pill);
+  }
+  .section__head-right { gap: 6px; }
+}
+
+/* ==========================================================================
+   14 · Card touch caption — legible at arm's length
+   ------------------------------------------------------------------------
+   The persistent touch caption (always shown on touch) gets a taller scrim, a
+   small state-aware dot inline with the author, and a one-line caption so a
+   one-handed scroll still tells you who + what. Extends the existing
+   .card__touch contract; no new markup from JS.
+   ========================================================================== */
+@media (max-width: 719px) {
+  .card__touch {
+    padding: 26px 12px 11px;
+    background: linear-gradient(to top, rgb(0 0 0 / 0.82) 0%, rgb(0 0 0 / 0.42) 50%, transparent 100%);
+    gap: 3px;
+  }
+  .card__touch .card__author {
+    font-size: 13px;
+    letter-spacing: -0.01em;
+    text-shadow: 0 1px 4px rgb(0 0 0 / 0.6);
+  }
+  /* Mirror the resting state dot into the always-on caption so "new" / seen
+     reads without needing the hover layer. */
+  .card[data-unseen="1"] .card__touch .card__author::before {
+    content: "";
+    display: inline-block;
+    width: 7px; height: 7px;
+    margin-inline-end: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    vertical-align: middle;
+    box-shadow: 0 0 0 2px rgb(0 0 0 / 0.25);
+  }
 }
 
 /* ==========================================================================

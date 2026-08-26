@@ -126,10 +126,9 @@
   gap: 8px;
   height: 36px;
   padding-inline: 12px;
-  border: none;
+  border: 1px solid rgb(255 255 255 / 0.18);
   border-radius: var(--r-control);
-  background: rgb(255 255 255 / 0.1);
-  backdrop-filter: blur(12px);
+  background: rgb(28 28 34 / 0.92);
   color: #f2f2f6;
   font-size: 13px;
   font-weight: 500;
@@ -172,8 +171,8 @@
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: rgb(255 255 255 / 0.12);
-  backdrop-filter: blur(10px);
+  background: rgb(28 28 34 / 0.92);
+  border: 1px solid rgb(255 255 255 / 0.18);
   transition: scale var(--spring-fast), background-color var(--t-micro) var(--ease);
 }
 .viewer__step:hover > span { background: rgb(255 255 255 / 0.24); scale: 1.06; }
@@ -590,8 +589,8 @@
   width: 84px;
   height: 84px;
   border-radius: 50%;
-  background: rgb(255 255 255 / 0.14);
-  backdrop-filter: blur(2px);
+  background: rgb(28 28 34 / 0.92);
+  border: 1px solid rgb(255 255 255 / 0.18);
   color: #fff;
   font-size: 13px;
   font-weight: 700;
@@ -621,8 +620,7 @@
   justify-content: center;
   padding: 10px 16px;
   border-radius: var(--r-pill);
-  background: rgb(12 12 16 / 0.88);
-  backdrop-filter: blur(8px);
+  background: rgb(12 12 16 / 0.94);
   color: #fff;
   font-size: 15px;
   font-weight: 700;
@@ -642,8 +640,7 @@
   min-width: 230px;
   padding: 12px 14px;
   border-radius: var(--r-surface);
-  background: rgb(10 10 14 / 0.88);
-  backdrop-filter: blur(10px);
+  background: rgb(10 10 14 / 0.94);
   color: #eef;
   font-size: 12px;
   line-height: 1.5;
@@ -673,8 +670,7 @@
   gap: 6px;
   padding: 7px 8px 7px 14px;
   border-radius: var(--r-pill);
-  background: rgb(20 20 26 / 0.9);
-  backdrop-filter: blur(10px);
+  background: rgb(20 20 26 / 0.94);
   box-shadow: var(--shadow-2);
   color: #f2f2f6;
   font-size: 12.5px;
@@ -730,6 +726,14 @@
 
   /* The filmstrip and gallery dots become swipe-friendly strips. */
   .viewer__strip button, .viewer__dot { width: 54px; height: 54px; border-radius: 10px; }
+
+  /* Finger-following swipe-to-dismiss (js/viewer.js writes --viewer-drag).
+     While dragging, the whole viewer tracks the finger 1:1 (no transition);
+     on release the property is cleared and the sheet springs back on the
+     soft overshoot curve. Horizontal paging stays the browser's. */
+  .viewer { transform: translateY(var(--viewer-drag, 0)); }
+  .viewer[data-dragging="true"] { transition: none; }
+  .viewer:not([data-dragging="true"]) { transition: transform var(--spring-settle); }
 }
 
 @media (max-width: 719px) and (pointer: coarse) {

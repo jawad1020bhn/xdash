@@ -677,8 +677,6 @@ body {
   z-index: var(--md-sys-z-toolbar);
   box-shadow: var(--md-sys-elevation-level3);
   background: var(--md-sys-color-surface-container-high);
-  backdrop-filter: blur(24px) saturate(140%);
-  -webkit-backdrop-filter: blur(24px) saturate(140%);
   transition: transform var(--md-sys-motion-spring-default-spatial),
               opacity var(--md-sys-motion-spring-default-effects);
 }
@@ -720,13 +718,6 @@ body {
 .m3e-app-bar[data-scrolled="true"] {
   background: var(--md-sys-color-surface-container);
   box-shadow: var(--md-sys-elevation-level2);
-}
-@supports (backdrop-filter: blur(1px)) {
-  .m3e-app-bar[data-scrolled="true"] {
-    background: color-mix(in srgb, var(--md-sys-color-surface-container) 82%, transparent);
-    backdrop-filter: blur(20px) saturate(150%);
-    -webkit-backdrop-filter: blur(20px) saturate(150%);
-  }
 }
 
 /* =============================================================================
@@ -1335,9 +1326,6 @@ body {
   transition: opacity var(--md-sys-motion-spring-default-effects);
 }
 .m3e-scrim[data-open="true"] { opacity: 1; pointer-events: auto; }
-@supports (backdrop-filter: blur(1px)) {
-  .m3e-scrim[data-open="true"] { backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
-}
 
 .m3e-dialog {
   position: fixed;
@@ -1858,14 +1846,13 @@ body {
   gap: 4px;
   padding: 3px 9px;
   border-radius: var(--md-sys-shape-corner-full);
-  background: rgb(0 0 0 / 0.62);
+  background: rgb(0 0 0 / 0.72);
   color: #fff;
   font: var(--md-sys-typescale-label-medium-emphasized-weight)
         var(--md-sys-typescale-label-medium-size) /
         var(--md-sys-typescale-label-medium-line-height)
         var(--md-ref-typeface-plain);
   font-variant-numeric: tabular-nums;
-  backdrop-filter: blur(6px);
   pointer-events: none;
 }
 .m3e-tile__badge > svg { width: 14px; height: 14px; }
@@ -1882,9 +1869,8 @@ body {
   width: 56px;
   height: 56px;
   border-radius: var(--md-sys-shape-corner-full);
-  background: rgb(0 0 0 / 0.52);
+  background: rgb(0 0 0 / 0.6);
   color: #fff;
-  backdrop-filter: blur(8px);
   pointer-events: none;
   transition: scale var(--md-sys-motion-spring-default-spatial),
               opacity var(--md-sys-motion-spring-default-effects);
