@@ -20,7 +20,7 @@
    ============================================================================= */
 "use strict";
 
-const VERSION = "2.0.0";
+const VERSION = "3.0.0";
 const SHELL = `xarc-shell-${VERSION}`;
 const ASSETS = `xarc-assets-${VERSION}`;
 const IMAGES = `xarc-images-${VERSION}`;
@@ -84,7 +84,7 @@ async function discoverAssets() {
     const url = new URL(raw, self.location);
     if (!isSameOrigin(url)) continue;
     const path = url.pathname;
-    if (/\.(css|js|mjs|woff2|png|svg|webmanifest)$/.test(path)) {
+    if (/\.(css|js|mjs|woff2|png|jpe?g|svg|webmanifest)$/.test(path)) {
       urls.add(path);
       if (/\.js$/.test(path)) entryPoints.push(path);
     }

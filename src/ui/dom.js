@@ -1,148 +1,156 @@
 /* =============================================================================
-   dom — the one way this app touches the DOM.
+   dom — the tiny DOM toolkit every view shares.
 
-   h("button.card", { onclick }, ...children) returns a real element. No innerHTML
-   interpolation of user data anywhere, so the tweet text and creator names that
-   flow through this app can never become markup.
+   h() builds elements from a CSS-ish selector; breakpoints are the SAME two
+   numbers CSS uses (720 / 1080) so layout logic and stylesheets cannot drift.
+   ========================================================================== */
 
-   Icons are defined in icons.js and re-exported here, because every view needs
-   both and should not have to know which file each one lives in.
-   ============================================================================= */
+export const BP = { mid: 720, wide: 1080 };
 
-export { icon, ICON_NAMES } from "./icons.js";
+/* Views import h and icon together; keep that ergonomic. */
+export { icon } from "./icons.js";
 
-/** Split "button.card.tile--active#id" into tag, classes and id. */
-function parseSpec(spec) {
-  const parts = spec.split(/(?=[.#])/);
-  const tag = /^[a-z]/i.test(parts[0]) ? parts.shift() : "div";
-  const classes = [];
-  let id = null;
-  for (const part of parts) {
-    const value = part.slice(1);
-    if (!value) continue;
-    if (part[0] === "#") id = value;
-    else if (part[0] === ".") classes.push(value);
-  }
-  return { tag, classes, id };
-}
-
-function setProps(el, props) {
-  for (const [key, value] of Object.entries(props)) {
-    if (value === null || value === undefined || value === false) continue;
-    if (key === "class") el.className += (el.className ? " " : "") + value;
-    else if (key === "style") Object.assign(el.style, value);
-    else if (key === "text") el.textContent = value;
-    else if (key === "html") el.innerHTML = value;   // only for trusted local icon strings
-    else if (key === "dataset") Object.assign(el.dataset, value);
-    else if (key.startsWith("on") && typeof value === "function") {
-      el.addEventListener(key.slice(2).toLowerCase(), value);
-    } else if (value === true) el.setAttribute(key, "");
-    else el.setAttribute(key, value);
-  }
-}
-
-export function h(spec, props, ...children) {
-  const { tag, classes, id } = parseSpec(spec);
-  const el = document.createElement(tag);
+/**
+ * h("button.card.is-on", { onclick, dataset, text }, ...children)
+ * Children may be nodes, strings, arrays, or null.
+ */
+export function h(sel, attrs, ...children) {
+  const [tag, ...classes] = sel.split(".");
+  const el = document.createElement(tag || "div");
   if (classes.length) el.className = classes.join(" ");
-  if (id) el.id = id;
-  if (props && (typeof props !== "object" || props.nodeType || Array.isArray(props))) {
-    children.unshift(props);
-    props = null;
+
+  if (attrs && !(attrs instanceof Node) && !Array.isArray(attrs) && typeof attrs !== "string") {
+    for (const [key, value] of Object.entries(attrs)) {
+      if (value === null || value === undefined || value === false) continue;
+      if (key === "text") el.textContent = value;
+      else if (key === "html") el.innerHTML = value;
+      else if (key === "class") {
+        const parts = String(value).split(/\s+/).filter(Boolean);
+        if (parts.length) el.classList.add(...parts);
+      }
+      else if (key === "dataset") Object.assign(el.dataset, value);
+      else if (key === "style" && typeof value === "object") {
+        for (const [p, v] of Object.entries(value)) {
+          if (v === null || v === undefined) continue;
+          p.startsWith("--") ? el.style.setProperty(p, v) : (el.style[p] = v);
+        }
+      }
+      else if (key.startsWith("on") && typeof value === "function") el.addEventListener(key.slice(2), value);
+      else if (value === true) el.setAttribute(key, "");
+      else el.setAttribute(key, String(value));
+    }
+  } else if (attrs !== undefined) {
+    children.unshift(attrs);
   }
-  if (props) setProps(el, props);
+
   append(el, children);
   return el;
 }
 
-export function append(parent, children) {
-  for (const child of children.flat(4)) {
-    if (child === null || child === undefined || child === false || child === true) continue;
-    parent.append(child.nodeType ? child : document.createTextNode(String(child)));
+function append(el, children) {
+  for (const child of children) {
+    if (child === null || child === undefined || child === false) continue;
+    if (Array.isArray(child)) append(el, child);
+    else if (child instanceof Node) el.append(child);
+    else el.append(String(child));
   }
-  return parent;
 }
 
 export function clear(el) {
-  if (!el) return el;
   el.replaceChildren();
   return el;
 }
 
-/** Build a DocumentFragment from children — cheaper than N appends. */
-export function frag(...children) {
-  const f = document.createDocumentFragment();
-  append(f, children);
-  return f;
+/* ------------------------------------------------------------ breakpoints -- */
+
+let bpListeners = [];
+let currentBP = readBP();
+
+function readBP() {
+  const w = typeof window === "undefined" ? 1280 : window.innerWidth;
+  return w >= BP.wide ? "wide" : w >= BP.mid ? "mid" : "compact";
 }
 
-export function attr(el, name, value) {
-  if (value === null || value === undefined) el.removeAttribute(name);
-  else el.setAttribute(name, value);
-  return el;
-}
-
-/* ---------------------------------------------------------------- motion -- */
-
-/** Runs a transition only when the user has not asked for reduced motion. */
-export function reducedMotion() {
-  return document.documentElement.dataset.motion === "reduced" ||
-    (matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false);
-}
-
-/** Short tick on touch devices; a no-op everywhere else. */
-export function haptic(pattern = 8) {
-  if (matchMedia?.("(hover: none)").matches && navigator.vibrate) {
-    try { navigator.vibrate(pattern); } catch { /* some platforms reject */ }
-  }
-}
-
-/**
- * One shared breakpoint source. CSS uses min-width 720 / 1080; JS asks the
- * same two numbers. The previous codebase had eight breakpoints in CSS and a
- * seventh, different one in JS, which is how the two drifted apart.
- */
-const listeners = new Set();
-let cached = { compact: true, tablet: false, desktop: false };
-
-function readBreakpoint() {
-  const w = window.innerWidth;
-  cached = { compact: w < 720, tablet: w >= 720 && w < 1080, desktop: w >= 1080 };
-  document.documentElement.dataset.bp =
-    cached.desktop ? "desktop" : cached.tablet ? "tablet" : "compact";
-  for (const fn of listeners) fn(cached);
-  return cached;
-}
-
-export function useBreakpoint() {
-  readBreakpoint();
-  return cached;
-}
-
-export function onBreakpoint(fn) {
-  listeners.add(fn);
-  fn(cached);
-  return () => listeners.delete(fn);
-}
-
-let boundResize = false;
 export function initBreakpoints() {
-  if (boundResize) return;
-  boundResize = true;
-  readBreakpoint();
-  let frame = 0;
+  currentBP = readBP();
+  document.documentElement.dataset.bp = currentBP;
   addEventListener("resize", () => {
-    if (frame) return;
-    frame = requestAnimationFrame(() => { frame = 0; readBreakpoint(); });
+    const next = readBP();
+    if (next === currentBP) return;
+    currentBP = next;
+    document.documentElement.dataset.bp = next;
+    for (const fn of bpListeners) fn(next);
   }, { passive: true });
 }
 
-/** True for touch-primary devices. Drives hover-vs-tap affordances. */
-export function isTouch() {
-  return matchMedia?.("(hover: none), (pointer: coarse)").matches ?? false;
+export const breakpoint = () => currentBP;
+export const isCompact = () => currentBP === "compact";
+export function onBreakpoint(fn) {
+  bpListeners.push(fn);
+  return () => { bpListeners = bpListeners.filter((f) => f !== fn); };
 }
 
-/** Wait for the next paint. */
-export function nextFrame() {
-  return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+/* ----------------------------------------------------------------- misc -- */
+
+export const isTouch = () =>
+  matchMedia?.("(hover: none), (pointer: coarse)")?.matches ?? false;
+
+export const reducedMotion = () =>
+  document.documentElement.dataset.motion === "reduced" ||
+  matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+
+export function haptic(ms = 8) {
+  if (!isTouch()) return;
+  try { navigator.vibrate?.(ms); } catch { /* not supported */ }
+}
+
+/** Animated number roll for KPI cards. Respects reduced motion. */
+export function countUp(el, target, { duration = 700, format = (n) => String(n) } = {}) {
+  if (reducedMotion()) { el.textContent = format(target); return; }
+  const started = performance.now();
+  const from = 0;
+  const tick = (now) => {
+    const t = Math.min(1, (now - started) / duration);
+    const eased = 1 - Math.pow(1 - t, 3);
+    el.textContent = format(from + (target - from) * eased);
+    if (t < 1) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
+/** Runs fn on the next idle moment, batched — used by the windowed grid. */
+export function onIdle(fn, timeout = 120) {
+  if ("requestIdleCallback" in window) requestIdleCallback(fn, { timeout });
+  else setTimeout(fn, 16);
+}
+
+/** Escape-to-close, stacked so the topmost overlay wins. */
+const escStack = [];
+export function pushEsc(fn) {
+  escStack.push(fn);
+  if (escStack.length === 1) addEventListener("keydown", escHandler);
+  return () => {
+    const i = escStack.indexOf(fn);
+    if (i >= 0) escStack.splice(i, 1);
+    if (!escStack.length) removeEventListener("keydown", escHandler);
+  };
+}
+function escHandler(e) {
+  if (e.key === "Escape") { e.stopPropagation(); escStack[escStack.length - 1]?.(); }
+}
+
+/** Keeps Tab inside an overlay while it is open. */
+export function trapFocus(container, initial) {
+  const selector = 'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])';
+  const onKey = (e) => {
+    if (e.key !== "Tab") return;
+    const items = [...container.querySelectorAll(selector)].filter((n) => n.offsetParent !== null || n === document.activeElement);
+    if (!items.length) return;
+    const first = items[0], last = items[items.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  };
+  container.addEventListener("keydown", onKey);
+  initial?.focus({ preventScroll: true });
+  return () => container.removeEventListener("keydown", onKey);
 }

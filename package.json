@@ -1,9 +1,9 @@
 {
   "name": "x-bookmarks-archive",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "private": true,
   "type": "module",
-  "description": "A fast, offline-first visual archive of X bookmarks. Static, build-free.",
+  "description": "A fast, offline-first visual dashboard for your X bookmarks. Bold, media-first, build-free.",
   "scripts": {
     "start": "node tools/serve.js",
     "build": "node tools/build-slim.js",

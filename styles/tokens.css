@@ -1,175 +1,203 @@
 /* =============================================================================
-   Tokens — the only place a value is allowed to be decided.
+   TOKENS v3 — the only place a value is decided.
 
-   Everything downstream (base, components, views, and the JS) reads from here.
-   Nothing in this file knows what a button is; it only knows what "surface",
-   "accent" and "a comfortable tap" mean.
+   Direction: BOLD MEDIA-FIRST. The archive is 1,205 photos and videos, so the
+   canvas stays near-black (or paper-white) and lets saturated colour exist in
+   exactly two places: the media itself, and the colour-blocking that labels a
+   section. Chrome is quiet; content is loud.
 
-   Dark is the default because this is a media archive: 1,205 photos and videos
-   are the product, and they read best on a near-black canvas. Light is a real
-   theme, not an inversion.
+   Every hue in the product comes from HUES below. A section picks one with
+   `--hue`, and backgrounds, chips and chart strokes derive from it — so the
+   dashboard reads as colour-blocked, not rainbow-random.
    ============================================================================= */
 
 :root {
-  /* ---- Accent -------------------------------------------------------------
-     One accent, used for exactly four jobs: the active destination, focus,
-     progress, and selection. If a fifth use appears, that is a bug. */
-  --accent-500: #7a6cff;
-  --accent-400: #8f83ff;
-  --accent-600: #6553f0;
+  /* ---- Brand ------------------------------------------------------------
+     Two-stop brand ramp for the mark, the active-tab indicator and charts. */
+  --brand-1: #ff3d81;        /* hot magenta  */
+  --brand-2: #7c5cff;        /* voltage violet */
+  --brand: linear-gradient(135deg, var(--brand-1), var(--brand-2));
 
-  --danger: #ff5c5c;
-  --danger-soft: color-mix(in oklab, var(--danger) 16%, transparent);
-  --positive: #35d6a4;
+  /* ---- Section hues ------------------------------------------------------
+     Cycled by rails and KPI cards. Saturation/lightness are applied by the
+     theme blocks below so light mode stays legible. */
+  --hue-a: 335;   /* magenta  */
+  --hue-b: 255;   /* violet   */
+  --hue-c: 190;   /* cyan     */
+  --hue-d: 80;    /* lime     */
+  --hue-e: 28;    /* amber    */
+  --hue-f: 150;   /* mint     */
 
-  /* ---- Shape -------------------------------------------------------------- */
+  /* ---- Semantic ---------------------------------------------------------- */
+  --ok: #34d399;
+  --warn: #fbbf24;
+  --danger: #ff5470;
+
+  /* ---- Shape ------------------------------------------------------------- */
   --r-xs: 8px;
   --r-sm: 12px;
   --r-md: 16px;
   --r-lg: 22px;
+  --r-xl: 28px;
   --r-pill: 999px;
 
-  /* ---- Touch --------------------------------------------------------------
-     One floor for every interactive surface. WCAG 2.5.8 asks for 24px; a thumb
-     needs 44. Nothing interactive in this app is allowed to go below this. */
+  /* ---- Touch ------------------------------------------------------------- */
   --tap: 44px;
   --tap-lg: 52px;
 
-  /* ---- Spacing (4px base) ------------------------------------------------- */
-  --s-1: 4px;
-  --s-2: 8px;
-  --s-3: 12px;
-  --s-4: 16px;
-  --s-5: 20px;
-  --s-6: 24px;
-  --s-8: 32px;
-  --s-10: 40px;
-  --s-12: 48px;
+  /* ---- Space (4px base) -------------------------------------------------- */
+  --s-1: 4px;  --s-2: 8px;  --s-3: 12px; --s-4: 16px; --s-5: 20px;
+  --s-6: 24px; --s-7: 28px; --s-8: 32px; --s-10: 40px; --s-12: 48px; --s-16: 64px;
 
-  /* ---- Motion -------------------------------------------------------------
-     Three durations and two curves. Nothing else is permitted, which is what
-     keeps the product feeling like one object rather than twelve. */
-  --t-fast: 120ms;
+  /* ---- Motion ------------------------------------------------------------ */
+  --t-fast: 110ms;
   --t-ui: 200ms;
-  --t-slow: 380ms;
-  --ease: cubic-bezier(0.2, 0, 0, 1);
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-spring: cubic-bezier(0.34, 1.32, 0.64, 1);
+  --t-slow: 420ms;
+  --ease: cubic-bezier(.2, 0, 0, 1);
+  --ease-out: cubic-bezier(.16, 1, .3, 1);
+  --spring: cubic-bezier(.34, 1.4, .5, 1);
 
-  /* ---- Shell metrics ------------------------------------------------------ */
-  --topbar-h: 56px;
-  --nav-h: 60px;
-  --rail-w: 76px;
+  /* ---- Shell metrics ----------------------------------------------------- */
+  --topbar-h: 58px;
+  --tabbar-h: 62px;
+  --side-w: 236px;
+  --side-w-mini: 76px;
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
   /* ---- Type ---------------------------------------------------------------
-     The previous build shipped 144 KB of Roboto Flex. A variable optical-size
-     face is a genuine improvement over a static one, but not over the system
-     UI face at 144 KB on a phone, so this stack asks the platform for its best
-     UI typeface and nothing is downloaded. */
-  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-          "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+     Nothing is downloaded: the platform's own UI face at black weights carries
+     the display voice. Numerals are tabular everywhere stats live. */
+  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI Variable Display",
+          "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  --fs-display: clamp(30px, 6.2vw, 58px);
+  --fs-h1: clamp(22px, 3.4vw, 30px);
+  --fs-h2: clamp(17px, 2.2vw, 21px);
+  --fs-h3: 15.5px;
+  --fs-body: 14.5px;
+  --fs-small: 12.5px;
+  --fs-tiny: 11px;
+
+  --trk-tight: -0.035em;
+  --trk-label: 0.09em;
 
   color-scheme: dark;
 }
 
 /* ==========================================================================
-   Dark (default)
+   DARK — default. Layered surfaces give real elevation; a faint top-light on
+   every raised surface is what stops flat-black from looking like a wireframe.
    ========================================================================== */
 :root,
 :root[data-theme="dark"] {
-  --bg: #0b0b0e;
-  --bg-raised: #121218;
-  --surface: #15151c;
-  --surface-2: #1c1c25;
-  --surface-3: #24242f;
-  --chrome: color-mix(in oklab, #0b0b0e 82%, transparent);
+  --bg: #08080b;
+  --bg-2: #0c0c11;
+  --surface: #12121a;
+  --surface-2: #191922;
+  --surface-3: #22222e;
+  --chrome: color-mix(in oklab, #0b0b10 78%, transparent);
 
-  --text: #f2f2f7;
-  --text-2: #a7a7b8;
-  --text-3: #76768a;
+  --text: #f5f4fa;
+  --text-2: #a6a4b8;
+  --text-3: #6f6d82;
 
-  --line: #26262f;
-  --line-2: #33333f;
+  --line: color-mix(in oklab, #ffffff 9%, transparent);
+  --line-2: color-mix(in oklab, #ffffff 16%, transparent);
+  --hi: color-mix(in oklab, #ffffff 7%, transparent);   /* top-light on raised */
 
-  --accent: var(--accent-400);
-  --on-accent: #0b0b0e;
-  --accent-soft: color-mix(in oklab, var(--accent-400) 18%, transparent);
-  --accent-line: color-mix(in oklab, var(--accent-400) 46%, transparent);
+  --scrim: color-mix(in oklab, #000 74%, transparent);
+  --media-bg: #101016;
 
-  --scrim: color-mix(in oklab, #000 72%, transparent);
-  --media-bg: #0f0f14;
+  /* colour-blocking: hue → usable fills, per theme */
+  --hue-s: 88%;
+  --hue-l: 62%;
+  --blk-tint: 0.16;    /* section wash alpha   */
+  --blk-chip: 0.22;    /* chip / pill fill     */
+  --blk-line: 0.42;
 
-  --sh-1: 0 1px 2px rgb(0 0 0 / 0.5);
-  --sh-2: 0 8px 24px -8px rgb(0 0 0 / 0.7), 0 2px 6px -2px rgb(0 0 0 / 0.5);
-  --sh-3: 0 24px 64px -16px rgb(0 0 0 / 0.8), 0 8px 24px -12px rgb(0 0 0 / 0.6);
+  --sh-1: 0 1px 2px rgb(0 0 0 / .55);
+  --sh-2: 0 10px 30px -10px rgb(0 0 0 / .75), 0 2px 8px -2px rgb(0 0 0 / .55);
+  --sh-3: 0 30px 80px -20px rgb(0 0 0 / .85), 0 10px 30px -14px rgb(0 0 0 / .65);
+  --sh-glow: 0 0 0 1px var(--line), 0 12px 40px -12px color-mix(in oklab, var(--brand-2) 45%, transparent);
 
-  --sk: #1a1a22;
-  --sk-hi: #24242e;
+  --sk: #17171f;
+  --sk-hi: #23232d;
 }
 
 /* ==========================================================================
-   Light — a warm paper, not a white inversion. Contrast ratios are tuned for
-   the muted tiers, which is where inversions usually fail.
+   LIGHT — warm paper. Hues darken and desaturate so colour-blocking reads as
+   print ink, not neon.
    ========================================================================== */
 :root[data-theme="light"] {
-  --bg: #fbfbfd;
-  --bg-raised: #ffffff;
+  --bg: #f7f6f3;
+  --bg-2: #fbfaf8;
   --surface: #ffffff;
-  --surface-2: #f2f2f6;
-  --surface-3: #e9e9f0;
-  --chrome: color-mix(in oklab, #fbfbfd 84%, transparent);
+  --surface-2: #f1f0ec;
+  --surface-3: #e7e6e0;
+  --chrome: color-mix(in oklab, #fbfaf8 82%, transparent);
 
-  --text: #14141a;
-  --text-2: #55555f;
-  --text-3: #6d6d7a;
+  --text: #131218;
+  --text-2: #565463;
+  --text-3: #7b7987;
 
-  --line: #e4e4ea;
-  --line-2: #d3d3dc;
+  --line: color-mix(in oklab, #14121c 10%, transparent);
+  --line-2: color-mix(in oklab, #14121c 18%, transparent);
+  --hi: color-mix(in oklab, #ffffff 65%, transparent);
 
-  --accent: var(--accent-600);
-  --on-accent: #ffffff;
-  --accent-soft: color-mix(in oklab, var(--accent-600) 12%, transparent);
-  --accent-line: color-mix(in oklab, var(--accent-600) 38%, transparent);
+  --scrim: color-mix(in oklab, #16141f 40%, transparent);
+  --media-bg: #e9e8e3;
 
-  --scrim: color-mix(in oklab, #101018 42%, transparent);
-  --media-bg: #ececF2;
+  --hue-s: 72%;
+  --hue-l: 42%;
+  --blk-tint: 0.10;
+  --blk-chip: 0.14;
+  --blk-line: 0.40;
 
-  --sh-1: 0 1px 2px rgb(18 16 40 / 0.07);
-  --sh-2: 0 8px 24px -10px rgb(18 16 40 / 0.16), 0 2px 6px -3px rgb(18 16 40 / 0.08);
-  --sh-3: 0 24px 56px -18px rgb(18 16 40 / 0.26), 0 8px 20px -12px rgb(18 16 40 / 0.14);
+  --sh-1: 0 1px 2px rgb(20 16 40 / .08);
+  --sh-2: 0 10px 28px -12px rgb(20 16 40 / .18), 0 2px 6px -3px rgb(20 16 40 / .10);
+  --sh-3: 0 28px 64px -20px rgb(20 16 40 / .28), 0 8px 20px -12px rgb(20 16 40 / .16);
+  --sh-glow: 0 0 0 1px var(--line), 0 12px 36px -14px color-mix(in oklab, var(--brand-2) 30%, transparent);
 
-  --sk: #e9e9ef;
-  --sk-hi: #f4f4f8;
+  --sk: #e8e7e2;
+  --sk-hi: #f3f2ee;
 
   color-scheme: light;
 }
 
 /* ==========================================================================
-   High contrast — driven by the OS setting, not a preference buried in a
-   settings sheet. Deepens ink and rules; never repaints the accent.
+   Derived hue helpers — a section sets --hue and gets a family for free.
+   ========================================================================== */
+.hue {
+  --hue-c: hsl(var(--hue, var(--hue-b)) var(--hue-s) var(--hue-l));
+  --hue-tint: hsl(var(--hue, var(--hue-b)) var(--hue-s) var(--hue-l) / var(--blk-tint));
+  --hue-chip: hsl(var(--hue, var(--hue-b)) var(--hue-s) var(--hue-l) / var(--blk-chip));
+  --hue-line: hsl(var(--hue, var(--hue-b)) var(--hue-s) var(--hue-l) / var(--blk-line));
+}
+
+/* ==========================================================================
+   OS-level contrast and motion.
    ========================================================================== */
 @media (prefers-contrast: more) {
-  :root[data-theme="dark"] { --text: #fff; --text-2: #c8c8d6; --line: #3c3c4a; --line-2: #4d4d5e; }
-  :root[data-theme="light"] { --text: #000; --text-2: #2c2c34; --line: #b9b9c4; --line-2: #9d9daa; }
+  :root[data-theme="dark"] { --text: #fff; --text-2: #cfcdde; --line: #45435a; --line-2: #5b5975; }
+  :root[data-theme="light"] { --text: #000; --text-2: #2b2a33; --line: #b6b4c0; --line-2: #94929f; }
 }
-
-/* ==========================================================================
-   Density — one variable moves the whole grid.
-   ========================================================================== */
-:root[data-density="compact"] { --tile-min: 128px; --gap: 4px; --tile-radius: var(--r-xs); }
-:root[data-density="cozy"]    { --tile-min: 168px; --gap: 8px; --tile-radius: var(--r-sm); }
-:root[data-density="roomy"]   { --tile-min: 232px; --gap: 12px; --tile-radius: var(--r-md); }
-:root { --tile-min: 168px; --gap: 8px; --tile-radius: var(--r-sm); }
-
-/* ==========================================================================
-   Motion off — honoured from the OS and from the settings sheet alike.
-   ========================================================================== */
 @media (prefers-reduced-motion: reduce) {
-  :root { --t-fast: 1ms; --t-ui: 1ms; --t-slow: 1ms; }
+  :root { --t-fast: 1ms; --t-ui: 1ms; --t-slow: 1ms; --spring: var(--ease); }
 }
-:root[data-motion="reduced"] { --t-fast: 1ms; --t-ui: 1ms; --t-slow: 1ms; }
+:root[data-motion="reduced"] { --t-fast: 1ms; --t-ui: 1ms; --t-slow: 1ms; --spring: var(--ease); }
+
+/* ==========================================================================
+   Density + tile aspect — one attribute moves the whole grid.
+   ========================================================================== */
+:root, :root[data-density="cozy"]    { --tile-min: 172px; --gap: 10px; --tile-r: var(--r-md); }
+:root[data-density="compact"]        { --tile-min: 132px; --gap: 5px;  --tile-r: var(--r-sm); }
+:root[data-density="roomy"]          { --tile-min: 236px; --gap: 14px; --tile-r: var(--r-lg); }
+
+:root, :root[data-aspect="4/5"] { --tile-aspect: 4 / 5; }
+:root[data-aspect="1/1"]        { --tile-aspect: 1 / 1; }
+:root[data-aspect="3/4"]        { --tile-aspect: 3 / 4; }
+:root[data-aspect="16/10"]      { --tile-aspect: 16 / 10; }
