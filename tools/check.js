@@ -10,7 +10,11 @@
    requestAnimationFrame, layout or media playback. Those browser APIs are
    stubbed below. Application logic is not.
 
-   Usage:  npm start  (in one shell)   then   npm test
+   Usage:  npm run build && npm run preview  (in one shell)   then   npm test
+   (in another). The test targets the production build deliberately: the Vite
+   dev server rewrites stylesheets into JS modules for HMR, which is correct
+   for browsers but unparseable as CSS — and testing the shipped artifact is
+   the stronger claim anyway. Override the target with BASE=https://host:port.
    ============================================================================= */
 
 import { JSDOM, VirtualConsole } from "jsdom";
@@ -163,8 +167,9 @@ ok("boot does not fall into the crash surface",
 ok("shell is visible", d.getElementById("shell").hidden === false);
 ok("boot skeleton was removed", !d.getElementById("boot"));
 
-ok("navigation has three destinations", q(".nav__item") === 3,
-  `${q(".nav__item")} found`);
+ok("tab bar has three destinations", q(".tabbar__item") === 3,
+  `${q(".tabbar__item")} found`);
+ok("slim navbar rendered", q(".navbar__title") === 1);
 
 const stats = d.querySelector(".greet__line")?.textContent || "";
 ok("greeting reports the real archive", /1\.2K|1,205|1205/.test(stats), stats.trim().slice(0, 60));
@@ -194,7 +199,7 @@ ok("booted with data in under 9s", elapsed < WAIT + 1000, `${elapsed}ms`);
 /* ------------------------------------------------- the Library window --- */
 
 console.log("\n── Library windowing ──");
-d.querySelector('.nav__item[data-route="library"]').dispatchEvent(new window.Event("click", { bubbles: true }));
+d.querySelector('.tabbar__item[data-route="library"]').dispatchEvent(new window.Event("click", { bubbles: true }));
 await new Promise((r) => setTimeout(r, 1200));
 
 const tiles = q(".grid .card");

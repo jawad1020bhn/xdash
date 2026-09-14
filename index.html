@@ -3,21 +3,24 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#0B0B0E" media="(prefers-color-scheme: dark)" />
-<meta name="theme-color" content="#FBFBFD" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+<meta name="theme-color" content="#F2F2F7" media="(prefers-color-scheme: light)" />
 <meta name="color-scheme" content="dark light" />
 <meta name="description" content="A fast, private, offline-first visual archive of everything you saved on X." />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="Archive" />
-<link rel="manifest" href="manifest.webmanifest" />
-<link rel="apple-touch-icon" href="icons/icon-192.png" />
-<link rel="icon" href="icons/icon-192.png" />
+<link rel="manifest" href="./manifest.webmanifest" />
+<link rel="apple-touch-icon" href="./icons/icon-192.png" />
+<link rel="icon" href="./icons/icon-192.png" />
 <link rel="preconnect" href="https://pbs.twimg.com" crossorigin />
 <link rel="preconnect" href="https://video.twimg.com" crossorigin />
 
-<link rel="stylesheet" href="styles/tokens.css" />
-<link rel="stylesheet" href="styles/base.css" />
-<link rel="stylesheet" href="styles/components.css" />
-<link rel="stylesheet" href="styles/views.css" />
+<link rel="stylesheet" href="./styles/tokens.css" />
+<link rel="stylesheet" href="./styles/base.css" />
+<link rel="stylesheet" href="./styles/components.css" />
+<link rel="stylesheet" href="./styles/views.css" />
 
 <script>
   /* Theme before first paint, so a light-mode user never sees a dark flash.
@@ -40,29 +43,18 @@
 <a class="skip-link" href="#main">Skip to content</a>
 
 <div class="shell" id="shell" hidden>
-  <header class="topbar" id="topbar">
-    <a class="brand" href="#/home" aria-label="Archive — home">
-      <span class="brand__mark" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M5 3h14a1 1 0 0 1 1 1v17l-8-4.2L4 21V4a1 1 0 0 1 1-1Z"/></svg>
-      </span>
-      <span class="brand__word">Archive</span>
-    </a>
-
-    <button class="topbar__search" id="openPalette" type="button" aria-keyshortcuts="Meta+K Control+K">
-      <span class="topbar__search-icon" aria-hidden="true"></span>
-      <span class="topbar__search-label">Search your archive</span>
-      <kbd class="topbar__search-kbd" aria-hidden="true">/</kbd>
-    </button>
-
-    <div class="topbar__actions">
-      <button class="icon-btn" id="themeToggle" type="button" aria-label="Switch to light theme"></button>
+  <header class="navbar" id="navbar">
+    <div class="navbar__side navbar__side--left" id="navbarLeft"></div>
+    <h1 class="navbar__title" id="navbarTitle">Home</h1>
+    <div class="navbar__side navbar__side--right">
+      <button class="icon-btn" id="searchBtn" type="button" aria-label="Search your archive" aria-keyshortcuts="Meta+K Control+K"></button>
       <button class="icon-btn" id="menuBtn" type="button" aria-label="Archive settings" aria-haspopup="dialog"></button>
     </div>
   </header>
 
-  <nav class="nav" id="nav" aria-label="Sections"></nav>
-
   <main class="stage" id="main" tabindex="-1"></main>
+
+  <nav class="tabbar" id="tabbar" aria-label="Sections"></nav>
 </div>
 
 <!-- Skeleton: painted by the stylesheet alone, before any JS module resolves.
@@ -122,10 +114,10 @@
       "This app was opened directly from the file system, so the browser blocks its modules and its data file.";
     document.getElementById("crashStack").hidden = false;
     document.getElementById("crashStack").textContent =
-      "Serve the folder over http instead:\n\n  npx serve .\n\nthen open the printed address.";
+      "Serve the folder over http instead:\n\n  npm install\n  npm start\n\nthen open the printed address.";
     document.getElementById("crashRetry").hidden = true;
   }
 </script>
-<script type="module" src="src/main.js"></script>
+<script type="module" src="./src/main.js"></script>
 </body>
 </html>

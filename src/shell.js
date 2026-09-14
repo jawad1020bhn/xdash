@@ -1,17 +1,24 @@
 /* =============================================================================
-   shell — the persistent frame: top bar, navigation, routing.
+   shell — the persistent frame: navbar, tab bar, routing.
 
-   The frame is built once and never rebuilt. Views mount into #main and own
-   their own scroll position, which is remembered per route.
+   v3 is iOS-shaped: a slim translucent navbar with the view title and two
+   icon actions, a bottom tab bar with three destinations, views that enter on
+   a spring, and an edge swipe that goes back. The frame is built once and
+   never rebuilt. Views mount into #main and own their own scroll position,
+   which is remembered per route.
    ============================================================================= */
 
-import { h, icon, clear, onBreakpoint, isTouch, haptic } from "./ui/dom.js";
+import { h, icon, clear, onBreakpoint, isTouch, haptic, reducedMotion } from "./ui/dom.js";
 import { state, set, setPrefs, applyPrefs, subscribe } from "./core/state.js";
 import { stats } from "./core/query.js";
 import { toast } from "./ui/feedback.js";
-import { openPalette } from "./ui/palette.js";
-import { openSettings } from "./views/settings.js";
-import { openManage } from "./views/manage.js";
+import { buildTabBar } from "./components/tabbar.js";
+
+/* The palette, settings and management sheets only load when first opened —
+   they are never part of the entry chunk. */
+const openPalette = () => import("./ui/palette.js").then((m) => m.openPalette());
+const openSettings = () => import("./views/settings.js").then((m) => m.openSettings());
+const openManage = () => import("./views/manage.js").then((m) => m.openManage());
 
 const ROUTES = [
   { id: "home", label: "Home", icon: "home", title: "Home" },
@@ -22,86 +29,67 @@ const ROUTES = [
 export const ROUTE_IDS = ROUTES.map((r) => r.id);
 
 let els = {};
+let tabbar = null;
 const views = {};
 const scrollMemory = new Map();
 let current = null;
 let lastScroll = 0;
-let hidingNav = false;
+let hidingTabs = false;
+
+/* An internal mirror of the hash history, used for one job only: knowing
+   whether a swipe-back has somewhere to go. Browser chrome owns the real
+   history; this is just a depth guard plus consecutive-dedupe. */
+const navStack = [];
+let pendingBack = false;
 
 export function initShell(viewModules) {
   Object.assign(views, viewModules);
   els = {
     shell: document.getElementById("shell"),
-    topbar: document.getElementById("topbar"),
-    nav: document.getElementById("nav"),
+    navbar: document.getElementById("navbar"),
+    title: document.getElementById("navbarTitle"),
+    tabbar: document.getElementById("tabbar"),
     main: document.getElementById("main"),
     boot: document.getElementById("boot"),
-    palette: document.getElementById("openPalette"),
-    theme: document.getElementById("themeToggle"),
+    search: document.getElementById("searchBtn"),
     menu: document.getElementById("menuBtn"),
   };
 
-  buildNav();
-  wireHeader();
+  tabbar = buildTabBar(els.tabbar, ROUTES, onTabSelect);
+  wireNavbar();
   wireScrollChrome();
+  wireSwipeBack();
   wireKeys();
 
   els.shell.hidden = false;
   els.boot?.remove();
 
-  /* The nav's visibility rules depend on the breakpoint, and the top bar's
-     search label changes with it. One subscription, both concerns. */
   onBreakpoint(() => renderChromeBits());
   subscribe(() => renderChromeBits());
   renderChromeBits();
 }
 
-function buildNav() {
-  clear(els.nav);
-  for (const route of ROUTES) {
-    const item = h("button.nav__item", {
-      type: "button",
-      dataset: { route: route.id },
-      "aria-label": route.title,
-      onclick: () => {
-        haptic(8);
-        if (state.route === route.id) {
-          /* Tapping the tab you are already on returns you to its top. This is
-             the one gesture every phone user expects and rarely finds. */
-          scrollTo(0, 0);
-          return;
-        }
-        navigate(route.id);
-      },
-    },
-      icon(route.icon, 22),
-      h("span", { text: route.label }),
-    );
-    els.nav.append(item);
+function onTabSelect(id) {
+  if (state.route === id) {
+    /* Tapping the tab you are already on returns you to its top. This is
+       the one gesture every phone user expects and rarely finds. */
+    scrollTo({ top: 0, behavior: reducedMotion() ? "auto" : "smooth" });
+    return;
   }
+  navigate(id);
 }
 
-function wireHeader() {
-  els.palette.querySelector(".topbar__search-icon")
-    .append(icon("search", 18));
+function wireNavbar() {
+  els.search.append(icon("search", 21));
+  els.search.addEventListener("click", () => openPalette());
 
-  els.palette.addEventListener("click", () => openPalette());
-
-  els.theme.addEventListener("click", () => {
-    const dark = document.documentElement.dataset.theme === "dark";
-    setPrefs({ themeMode: dark ? "light" : "dark" });
-    haptic(6);
-  });
-
-  els.menu.append(icon("more", 22));
+  els.menu.append(icon("more", 21));
   els.menu.addEventListener("click", openMenu);
 }
 
 /** The archive menu — settings and data live here, not in the navigation. */
 async function openMenu() {
   const { overlay } = await import("./ui/feedback.js");
-  const { openViewer } = await import("./viewer.js");
-  void openViewer;
 
   const sheet = overlay({ title: "Archive", size: "sm" });
   const rows = [
@@ -170,7 +158,7 @@ async function showShortcuts() {
 
 /* -------------------------------------------------------------- routing -- */
 
-export function navigate(id, { replace = false } = {}) {
+export function navigate(id, { replace = false, back = false } = {}) {
   if (!ROUTE_IDS.includes(id)) id = "home";
   if (id === state.route && current) { renderChromeBits(); return; }
 
@@ -188,6 +176,17 @@ export function navigate(id, { replace = false } = {}) {
     try { mod.mount(els.main); }
     catch (err) { renderViewError(err); }
   }
+
+  /* The entering view rises on a spring; a back navigation slides in from
+     the edge it came from. One animation class, removed when it finishes. */
+  const view = els.main.firstElementChild;
+  if (view) {
+    view.classList.add("stage__view", back ? "is-in-back" : "is-in");
+    view.addEventListener("animationend",
+      () => view.classList.remove("is-in", "is-in-back"), { once: true });
+  }
+
+  if (!back && navStack[navStack.length - 1] !== id) navStack.push(id);
 
   const hash = `#/${id}`;
   if (replace) history.replaceState(null, "", hash);
@@ -224,20 +223,8 @@ function renderViewError(err) {
 /* ---------------------------------------------------------------- chrome -- */
 
 function renderChromeBits() {
-  for (const item of els.nav.children) {
-    const active = item.dataset.route === state.route;
-    if (active) item.setAttribute("aria-current", "page");
-    else item.removeAttribute("aria-current");
-  }
-  const wide = !document.documentElement.dataset.bp || document.documentElement.dataset.bp !== "compact";
-  els.palette.querySelector(".topbar__search-label").textContent =
-    wide ? "Search posts, creators, anything" : "Search";
-  els.palette.querySelector(".topbar__search-kbd").textContent =
-    navigator.platform?.includes("Mac") ? "⌘K" : "Ctrl K";
-
-  const dark = document.documentElement.dataset.theme === "dark";
-  els.theme.setAttribute("aria-label", dark ? "Switch to light theme" : "Switch to dark theme");
-  els.theme.replaceChildren(icon(dark ? "sun" : "moon", 20));
+  tabbar?.setActive(state.route);
+  if (els.title && current) els.title.textContent = current.title;
 
   /* Watch is immersive: the frame gets out of the way entirely. */
   document.body.dataset.immersive = state.route === "watch" ? "true" : "false";
@@ -252,24 +239,120 @@ function wireScrollChrome() {
     frame = requestAnimationFrame(() => {
       frame = 0;
       const y = window.scrollY;
-      els.topbar.dataset.scrolled = y > 8 ? "true" : "false";
+      els.navbar.dataset.scrolled = y > 8 ? "true" : "false";
 
-      /* The bottom bar yields to reading: down hides it, up brings it back.
+      /* The tab bar yields to reading: down hides it, up brings it back.
          Never hidden at the top, in Watch, or while a sheet is open. */
       if (isTouch() && state.route !== "watch" && !document.body.dataset.overlay) {
         const delta = y - lastScroll;
-        if (y < 60 || delta < -6) setNavHidden(false);
-        else if (delta > 10) setNavHidden(true);
+        if (y < 60 || delta < -6) setTabsHidden(false);
+        else if (delta > 10) setTabsHidden(true);
       }
       lastScroll = y;
     });
   }, { passive: true });
 }
 
-function setNavHidden(hidden) {
-  if (hidingNav === hidden) return;
-  hidingNav = hidden;
-  els.nav.dataset.hidden = hidden ? "true" : "false";
+function setTabsHidden(hidden) {
+  if (hidingTabs === hidden) return;
+  hidingTabs = hidden;
+  els.tabbar.dataset.hidden = hidden ? "true" : "false";
+}
+
+/* ------------------------------------------------------------ swipe-back -- */
+
+/**
+ * The iOS edge swipe: a touch drag starting within the left edge pulls the
+ * current view along 1:1, and releasing past a third of the screen (or with
+ * a flick) goes back. A short drag springs home.
+ *
+ * Deliberately conservative: it only arms on touch pointers, at the screen
+ * edge, with somewhere to go, and never while a sheet or the viewer owns
+ * the screen. A vertical scroll aborts it the moment it declares itself.
+ */
+function wireSwipeBack() {
+  const EDGE = 28;
+  let tracking = false;
+  let dead = false;
+  let sx = 0, sy = 0, dx = 0, lastX = 0, lastT = 0, velocity = 0;
+  let view = null;
+
+  els.main.addEventListener("pointerdown", (e) => {
+    if (e.pointerType !== "touch" || e.clientX > EDGE) return;
+    if (document.body.dataset.overlay || document.body.dataset.viewer === "open") return;
+    if (navStack.length < 2) return;
+    tracking = true; dead = false;
+    sx = lastX = e.clientX; sy = e.clientY; dx = 0; velocity = 0; lastT = e.timeStamp;
+    view = els.main.firstElementChild;
+  }, { passive: true });
+
+  els.main.addEventListener("pointermove", (e) => {
+    if (!tracking || dead) return;
+    dx = e.clientX - sx;
+    const dy = e.clientY - sy;
+    if (dx < 0) dx = 0;
+
+    /* A vertical scroll declares itself quickly — hand the gesture back. */
+    if (dy > 12 && dy > dx * 1.4) { cancelSwipe(); return; }
+    if (!view || dx <= 0) return;
+
+    const now = e.timeStamp;
+    if (now > lastT) {
+      velocity = 0.7 * velocity + 0.3 * ((e.clientX - lastX) / (now - lastT));
+      lastX = e.clientX; lastT = now;
+    }
+
+    els.main.dataset.swiping = "true";
+    const capped = Math.min(dx, window.innerWidth * 0.72);
+    view.style.translate = `${capped}px 0`;
+    view.style.opacity = String(1 - (capped / window.innerWidth) * 0.3);
+  }, { passive: true });
+
+  const finish = () => {
+    if (!tracking) return;
+    tracking = false;
+    delete els.main.dataset.swiping;
+    if (dead || !view) { view = null; return; }
+
+    const w = window.innerWidth;
+    if (dx > w * 0.34 || velocity > 0.55) {
+      /* Commit: the view keeps travelling off-screen while history moves. */
+      const v = view;
+      v.style.transition = "translate 220ms cubic-bezier(0.32,0.72,0,1), opacity 220ms linear";
+      v.style.translate = `${w}px 0`;
+      v.style.opacity = "0.6";
+      view = null;
+      haptic(10);
+      goBack();
+    } else {
+      /* Abort: spring home. */
+      const v = view;
+      view = null;
+      v.style.transition = "translate 280ms cubic-bezier(0.32,0.72,0,1), opacity 200ms linear";
+      v.style.translate = "0px 0";
+      v.style.opacity = "1";
+      setTimeout(() => { v.style.transition = ""; v.style.translate = ""; v.style.opacity = ""; }, 300);
+    }
+    dx = 0;
+  };
+
+  function cancelSwipe() {
+    dead = true;
+    tracking = false;
+    delete els.main.dataset.swiping;
+    if (view) { view.style.translate = ""; view.style.opacity = ""; view = null; }
+    dx = 0;
+  }
+
+  els.main.addEventListener("pointerup", finish, { passive: true });
+  els.main.addEventListener("pointercancel", cancelSwipe, { passive: true });
+}
+
+function goBack() {
+  if (navStack.length < 2) return;
+  navStack.pop();
+  pendingBack = true;
+  history.back();
 }
 
 /* -------------------------------------------------------------- hotkeys -- */
@@ -288,12 +371,13 @@ function wireKeys() {
     if (e.key === "1") navigate("home");
     if (e.key === "2") navigate("library");
     if (e.key === "3") navigate("watch");
-    if (e.key === "?" || (e.key === "/" && e.shiftKey)) showShortcuts();
+    if (e.key === "?") showShortcuts();
   });
 
   addEventListener("hashchange", () => {
     const id = readHash();
-    if (id && id !== state.route) navigate(id);
+    if (id && id !== state.route) navigate(id, { back: pendingBack });
+    pendingBack = false;
   });
 
   /* The OS may flip colour scheme mid-session; "system" has to follow. */

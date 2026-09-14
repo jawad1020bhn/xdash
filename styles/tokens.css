@@ -1,26 +1,25 @@
 /* =============================================================================
    Tokens — the only place a value is allowed to be decided.
 
-   Everything downstream (base, components, views, and the JS) reads from here.
-   Nothing in this file knows what a button is; it only knows what "surface",
-   "accent" and "a comfortable tap" mean.
+   v3 is an iOS-native system: true-black grouped surfaces in dark mode, iOS
+   label tiers, iOS blue as the single accent, and spring motion everywhere.
 
-   Dark is the default because this is a media archive: 1,205 photos and videos
-   are the product, and they read best on a near-black canvas. Light is a real
-   theme, not an inversion.
+   Backwards compatibility is deliberate: every variable the v2 views read is
+   still defined here with the same name, so the old views render inside the
+   new shell untouched while each one is rebuilt slice by slice.
    ============================================================================= */
 
 :root {
   /* ---- Accent -------------------------------------------------------------
-     One accent, used for exactly four jobs: the active destination, focus,
-     progress, and selection. If a fifth use appears, that is a bug. */
-  --accent-500: #7a6cff;
-  --accent-400: #8f83ff;
-  --accent-600: #6553f0;
+     iOS blue, used for exactly four jobs: the active tab, focus, progress and
+     selection. If a fifth use appears, that is a bug. */
+  --accent-500: #0a84ff;
+  --accent-400: #0a84ff;
+  --accent-600: #007aff;
 
-  --danger: #ff5c5c;
-  --danger-soft: color-mix(in oklab, var(--danger) 16%, transparent);
-  --positive: #35d6a4;
+  --danger: #ff453a;
+  --danger-soft: color-mix(in srgb, var(--danger) 16%, transparent);
+  --positive: #30d158;
 
   /* ---- Shape -------------------------------------------------------------- */
   --r-xs: 8px;
@@ -30,8 +29,8 @@
   --r-pill: 999px;
 
   /* ---- Touch --------------------------------------------------------------
-     One floor for every interactive surface. WCAG 2.5.8 asks for 24px; a thumb
-     needs 44. Nothing interactive in this app is allowed to go below this. */
+     One floor for every interactive surface. iOS asks for 44pt; nothing
+     interactive in this app is allowed to go below it. */
   --tap: 44px;
   --tap-lg: 52px;
 
@@ -47,18 +46,23 @@
   --s-12: 48px;
 
   /* ---- Motion -------------------------------------------------------------
-     Three durations and two curves. Nothing else is permitted, which is what
-     keeps the product feeling like one object rather than twelve. */
+     Durations stay small and countable; curves do the expressive work. The
+     springs below are iOS-shaped: fast attack, gentle settle, never bouncy
+     enough to feel like a toy. */
   --t-fast: 120ms;
   --t-ui: 200ms;
   --t-slow: 380ms;
   --ease: cubic-bezier(0.2, 0, 0, 1);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-spring: cubic-bezier(0.34, 1.32, 0.64, 1);
+  --spring: cubic-bezier(0.32, 0.72, 0, 1);
+  --spring-snappy: cubic-bezier(0.4, 0.9, 0.25, 1);
 
   /* ---- Shell metrics ------------------------------------------------------ */
-  --topbar-h: 56px;
-  --nav-h: 60px;
+  --topbar-h: 44px;   /* slim navbar; large titles live inside views (slices 1+) */
+  --nav-h: 50px;      /* tab bar content height; safe area adds below it */
+  --tabbar-h: 50px;
+  --navbar-h: 44px;
   --rail-w: 76px;
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
@@ -66,96 +70,100 @@
   --sar: env(safe-area-inset-right, 0px);
 
   /* ---- Type ---------------------------------------------------------------
-     The previous build shipped 144 KB of Roboto Flex. A variable optical-size
-     face is a genuine improvement over a static one, but not over the system
-     UI face at 144 KB on a phone, so this stack asks the platform for its best
-     UI typeface and nothing is downloaded. */
-  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-          "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+     The platform's UI face, Apple-first. No downloaded fonts: on an iPhone
+     this IS San Francisco, which is the whole point of an iOS-native target. */
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", ui-sans-serif, system-ui,
+          "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 
   color-scheme: dark;
 }
 
 /* ==========================================================================
-   Dark (default)
+   Dark (default) — true black with iOS grouped surfaces.
    ========================================================================== */
 :root,
 :root[data-theme="dark"] {
-  --bg: #0b0b0e;
-  --bg-raised: #121218;
-  --surface: #15151c;
-  --surface-2: #1c1c25;
-  --surface-3: #24242f;
-  --chrome: color-mix(in oklab, #0b0b0e 82%, transparent);
+  --bg: #000000;
+  --bg-raised: #1c1c1e;
+  --surface: #1c1c1e;
+  --surface-2: #2c2c2e;
+  --surface-3: #3a3a3c;
+  --chrome: color-mix(in srgb, #1c1c1e 78%, transparent);
 
-  --text: #f2f2f7;
-  --text-2: #a7a7b8;
-  --text-3: #76768a;
+  --text: #ffffff;
+  --text-2: #aeaeb2;
+  --text-3: #636366;
 
-  --line: #26262f;
-  --line-2: #33333f;
+  --line: #38383a;
+  --line-2: #48484a;
+  --separator: #38383a;
+
+  --fill: #2c2c2e;
+  --fill-2: #3a3a3c;
 
   --accent: var(--accent-400);
-  --on-accent: #0b0b0e;
-  --accent-soft: color-mix(in oklab, var(--accent-400) 18%, transparent);
-  --accent-line: color-mix(in oklab, var(--accent-400) 46%, transparent);
+  --on-accent: #ffffff;
+  --accent-soft: color-mix(in srgb, var(--accent-400) 18%, transparent);
+  --accent-line: color-mix(in srgb, var(--accent-400) 46%, transparent);
 
-  --scrim: color-mix(in oklab, #000 72%, transparent);
-  --media-bg: #0f0f14;
+  --scrim: color-mix(in srgb, #000 72%, transparent);
+  --media-bg: #1c1c1e;
 
   --sh-1: 0 1px 2px rgb(0 0 0 / 0.5);
   --sh-2: 0 8px 24px -8px rgb(0 0 0 / 0.7), 0 2px 6px -2px rgb(0 0 0 / 0.5);
   --sh-3: 0 24px 64px -16px rgb(0 0 0 / 0.8), 0 8px 24px -12px rgb(0 0 0 / 0.6);
 
-  --sk: #1a1a22;
-  --sk-hi: #24242e;
+  --sk: #1c1c1e;
+  --sk-hi: #2c2c2e;
 }
 
 /* ==========================================================================
-   Light — a warm paper, not a white inversion. Contrast ratios are tuned for
-   the muted tiers, which is where inversions usually fail.
+   Light — iOS grouped backgrounds, not a white inversion.
    ========================================================================== */
 :root[data-theme="light"] {
-  --bg: #fbfbfd;
+  --bg: #f2f2f7;
   --bg-raised: #ffffff;
   --surface: #ffffff;
-  --surface-2: #f2f2f6;
-  --surface-3: #e9e9f0;
-  --chrome: color-mix(in oklab, #fbfbfd 84%, transparent);
+  --surface-2: #efeff4;
+  --surface-3: #e5e5ea;
+  --chrome: color-mix(in srgb, #f2f2f7 80%, transparent);
 
-  --text: #14141a;
-  --text-2: #55555f;
-  --text-3: #6d6d7a;
+  --text: #000000;
+  --text-2: #3a3a3c;
+  --text-3: #8e8e93;
 
-  --line: #e4e4ea;
-  --line-2: #d3d3dc;
+  --line: #c6c6c8;
+  --line-2: #aeaeb2;
+  --separator: #c6c6c8;
+
+  --fill: #e5e5ea;
+  --fill-2: #d1d1d6;
 
   --accent: var(--accent-600);
   --on-accent: #ffffff;
-  --accent-soft: color-mix(in oklab, var(--accent-600) 12%, transparent);
-  --accent-line: color-mix(in oklab, var(--accent-600) 38%, transparent);
+  --accent-soft: color-mix(in srgb, var(--accent-600) 12%, transparent);
+  --accent-line: color-mix(in srgb, var(--accent-600) 38%, transparent);
 
-  --scrim: color-mix(in oklab, #101018 42%, transparent);
-  --media-bg: #ececF2;
+  --scrim: color-mix(in srgb, #101018 42%, transparent);
+  --media-bg: #e5e5ea;
 
   --sh-1: 0 1px 2px rgb(18 16 40 / 0.07);
   --sh-2: 0 8px 24px -10px rgb(18 16 40 / 0.16), 0 2px 6px -3px rgb(18 16 40 / 0.08);
   --sh-3: 0 24px 56px -18px rgb(18 16 40 / 0.26), 0 8px 20px -12px rgb(18 16 40 / 0.14);
 
-  --sk: #e9e9ef;
-  --sk-hi: #f4f4f8;
+  --sk: #e5e5ea;
+  --sk-hi: #f2f2f7;
 
   color-scheme: light;
 }
 
 /* ==========================================================================
-   High contrast — driven by the OS setting, not a preference buried in a
-   settings sheet. Deepens ink and rules; never repaints the accent.
+   High contrast — driven by the OS setting, not a buried preference.
    ========================================================================== */
 @media (prefers-contrast: more) {
-  :root[data-theme="dark"] { --text: #fff; --text-2: #c8c8d6; --line: #3c3c4a; --line-2: #4d4d5e; }
-  :root[data-theme="light"] { --text: #000; --text-2: #2c2c34; --line: #b9b9c4; --line-2: #9d9daa; }
+  :root[data-theme="dark"] { --text: #fff; --text-2: #d1d1d6; --line: #545458; --line-2: #636366; }
+  :root[data-theme="light"] { --text: #000; --text-2: #1c1c1e; --line: #8e8e93; --line-2: #636366; }
 }
 
 /* ==========================================================================

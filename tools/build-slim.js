@@ -9,9 +9,12 @@
    POSTS.json itself is left exactly as the extension wrote it. This is a
    read-side optimisation with a build step, not a change to the contract.
 
-   Usage:  npm run build
+   Usage:  npm run data
    The app prefers data/posts.slim.json when present and falls back to
    POSTS.json automatically, so deleting the output is always safe.
+
+   Both files live in public/, which Vite serves at the root in dev and
+   copies to dist/ on build — so the runtime URLs never change.
    ============================================================================= */
 
 import { readFileSync, writeFileSync, mkdirSync, statSync } from "node:fs";
@@ -19,8 +22,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const SRC = join(ROOT, "POSTS.json");
-const OUT = join(ROOT, "data", "posts.slim.json");
+const SRC = join(ROOT, "public", "POSTS.json");
+const OUT = join(ROOT, "public", "data", "posts.slim.json");
 
 const POST_FIELDS = [
   "tweet_id", "author_id", "author_name", "author_username", "author_profile_image_url",
@@ -61,7 +64,7 @@ function main() {
     export_version: 1,
     exported_at: doc.exported_at || new Date().toISOString(),
     derived_from: "POSTS.json",
-    note: "Projection of POSTS.json without the unused `raw` payload. Regenerate with npm run build.",
+    note: "Projection of POSTS.json without the unused `raw` payload. Regenerate with npm run data.",
     bookmarks: slim,
   };
 
