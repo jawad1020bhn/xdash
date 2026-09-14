@@ -74,6 +74,12 @@ function installStubs(window, width) {
     observe() {} unobserve() {} disconnect() {}
   };
 
+  /* Media elements: jsdom has no playback pipeline, so the verbs the feed
+     calls on activation are stubbed to succeed silently. */
+  window.HTMLMediaElement.prototype.play = function () { return Promise.resolve(); };
+  window.HTMLMediaElement.prototype.pause = function () {};
+  window.HTMLMediaElement.prototype.load = function () {};
+
   window.Element.prototype.scrollIntoView = function () {};
   window.Element.prototype.animate = function () {
     return { finished: Promise.resolve(), cancel() {}, finish() {} };
@@ -221,6 +227,27 @@ search.dispatchEvent(new window.Event("input", { bubbles: true }));
 await new Promise((r) => setTimeout(r, 700));
 const afterCount = d.querySelector(".lib__count")?.textContent || "";
 ok("search narrows the result count", /of/.test(afterCount), afterCount);
+
+/* ------------------------------------------------- the Watch feed ---- */
+
+console.log("\n── Watch feed ──");
+search.value = "";
+search.dispatchEvent(new window.Event("input", { bubbles: true }));
+await new Promise((r) => setTimeout(r, 700));
+d.querySelector('.tabbar__item[data-route="watch"]').dispatchEvent(new window.Event("click", { bubbles: true }));
+await new Promise((r) => setTimeout(r, 1500));
+
+const slides = q(".watch__slide");
+const feedVideos = q(".watch__video");
+const counter = d.querySelector(".watch__counter")?.textContent || "";
+ok("watch mounted with one slide per playable video", slides === 745, `${slides} slides`);
+ok("videos windowed to the active neighbourhood", feedVideos > 0 && feedVideos <= 9,
+  `${feedVideos} videos in the DOM`);
+ok("chrome counter reflects the feed", /\/ 745/.test(counter), counter);
+ok("first slide carries rail actions", q('.watch__slide[data-index="0"] .watch__action') === 4);
+ok("first slide carries meta and progress",
+  q('.watch__slide[data-index="0"] .watch__meta') === 1 &&
+  q('.watch__slide[data-index="0"] .watch__progress') === 1);
 
 /* ---------------------------------------------------------------- done -- */
 
