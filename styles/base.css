@@ -113,6 +113,17 @@ h1, h2, h3, p, .wrap-anywhere { overflow-wrap: anywhere; }
 }
 .navbar[data-scrolled="true"] { border-block-end-color: var(--separator); }
 
+/* A large-title view owns the top of the screen while its header is
+   visible: the bar goes transparent and its inline title fades out. */
+.navbar[data-prominent="true"] {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-block-end-color: transparent;
+}
+.navbar[data-prominent="true"] .navbar__title { opacity: 0; }
+.navbar__title { transition: opacity var(--t-ui) var(--ease); }
+
 .navbar__side {
   display: flex; align-items: center; gap: 2px; min-width: 0;
   min-height: var(--navbar-h);

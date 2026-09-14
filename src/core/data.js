@@ -16,6 +16,7 @@
    ============================================================================= */
 
 import { KEYS, getMany, setMany } from "./store.js";
+import { set } from "./state.js";
 
 /* Fields kept per post. Everything else in the export is discarded. */
 const POST_FIELDS = [
@@ -208,6 +209,21 @@ export async function loadIndex(onProgress) {
     return { ...project(stored), source: "storage", fromCache: false };
   }
   return { ...project([]), source: "none", fromCache: false };
+}
+
+/**
+ * Re-runs the load (fingerprint, then cache or network) and publishes the
+ * result. Pull-to-refresh calls this; an unchanged archive costs one HEAD
+ * request and zero JSON parsing.
+ */
+export async function refreshIndex(onProgress) {
+  const result = await loadIndex(onProgress);
+  set({
+    index: { posts: result.posts, media: result.media, authors: result.authors },
+    source: result.source,
+    ready: true,
+  });
+  return result;
 }
 
 /** Structured clone gives back plain objects; put the Map back. */

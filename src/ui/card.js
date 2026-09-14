@@ -148,27 +148,3 @@ export function syncCards(root = document) {
   document.body.dataset.selecting = state.ui.selecting ? "true" : "false";
 }
 
-/** A horizontal strip of cards. Native scroll on touch, arrow keys anywhere. */
-export function rail(items, { eager = 0, label } = {}) {
-  const track = h("div.rail__track", {
-    role: "group", "aria-label": label || "Items",
-  });
-  items.forEach((item, i) => track.append(card(item, items, { shape: "rail", eager: i < eager })));
-
-  const scroller = h("div.rail__scroll", track);
-
-  /* Arrow keys walk the strip without stealing page scroll, and only when the
-     strip actually has focus. */
-  scroller.addEventListener("keydown", (e) => {
-    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
-    if (!scroller.contains(document.activeElement)) return;
-    e.preventDefault();
-    const cards = [...track.children];
-    const i = cards.indexOf(document.activeElement);
-    const next = cards[Math.max(0, Math.min(cards.length - 1, i + (e.key === "ArrowRight" ? 1 : -1)))];
-    next?.focus({ preventScroll: true });
-    next?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
-  });
-
-  return scroller;
-}

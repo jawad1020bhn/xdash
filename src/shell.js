@@ -167,6 +167,7 @@ export function navigate(id, { replace = false, back = false } = {}) {
     views[current.id]?.unmount?.();
   }
 
+  if (els.navbar) els.navbar.dataset.prominent = "false";
   state.route = id;
   clear(els.main);
   current = ROUTES.find((r) => r.id === id);
@@ -202,6 +203,13 @@ export function navigate(id, { replace = false, back = false } = {}) {
 export function readHash() {
   const m = /^#\/(home|library|watch)/.exec(location.hash);
   return m ? m[1] : null;
+}
+
+/* ------------------------------------------------------- prominent -- */
+
+/** Large-title views call this as their header slides under the navbar. */
+export function setProminent(on) {
+  if (els.navbar) els.navbar.dataset.prominent = on ? "true" : "false";
 }
 
 function renderViewError(err) {

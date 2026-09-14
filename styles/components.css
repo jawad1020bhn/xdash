@@ -335,3 +335,19 @@ body[data-selecting="true"] .tile__pick,
   height: 3px; border-radius: var(--r-pill); background: var(--surface-3); overflow: hidden;
 }
 .progress span { display: block; height: 100%; background: var(--accent); border-radius: inherit; }
+
+/* --------------------------------------------------- pull to refresh ---- */
+.ptr { position: relative; height: 0; z-index: 5; }
+.ptr__spin {
+  position: absolute; left: 50%; bottom: 10px; translate: -50% 0;
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid var(--line-2); border-top-color: var(--text-3);
+  opacity: 0; scale: 0.6;
+  transition: opacity var(--t-fast) var(--ease), scale var(--t-fast) var(--ease-spring);
+}
+.ptr[data-state="pulling"] .ptr__spin { opacity: 1; scale: 0.85; }
+.ptr[data-state="armed"] .ptr__spin { opacity: 1; scale: 1; border-top-color: var(--accent); }
+.ptr[data-state="refreshing"] .ptr__spin { opacity: 1; scale: 1; animation: spin 700ms linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .ptr[data-state="refreshing"] .ptr__spin { animation-duration: 1600ms; }
+}

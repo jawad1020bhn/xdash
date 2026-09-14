@@ -144,7 +144,7 @@ export function applyPrefs() {
   root.dataset.blur = state.prefs.blurMedia ? "on" : "off";
 
   const meta = document.querySelector('meta[name="theme-color"]:not([media])');
-  if (meta) meta.setAttribute("content", dark ? "#0B0B0E" : "#FBFBFD");
+  if (meta) meta.setAttribute("content", dark ? "#000000" : "#F2F2F7");
 }
 
 /* --------------------------------------------------------------- library -- */
