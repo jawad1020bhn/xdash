@@ -10,12 +10,22 @@
 
 import { h, icon } from "../ui/dom.js";
 import { overlay, confirm, toast } from "../ui/feedback.js";
-import { state, setPrefs, resetPrefs } from "../core/state.js";
+import { state, setPrefs, resetPrefs, notify } from "../core/state.js";
 import { stats } from "../core/query.js";
 import { fmtCount } from "../ui/media.js";
 
+/* One settings sheet at a time: re-entry (after a PIN change or a reset)
+   replaces the sheet instead of stacking a fresh one over a stale one. */
+let current = null;
+
 export function openSettings(section = "appearance") {
-  const sheet = overlay({ title: "Settings", size: "sm" });
+  current?.close();
+  const sheet = overlay({
+    title: "Settings",
+    size: "sm",
+    onClose: () => { if (current === sheet) current = null; },
+  });
+  current = sheet;
 
   const groups = [
     { id: "appearance", label: "Appearance", icon: "sun", build: appearance },
@@ -110,6 +120,12 @@ function appearance() {
         { value: "cozy", label: "Cozy" },
         { value: "roomy", label: "Roomy" },
       ])),
+    row("Start on", "The first screen after launch.",
+      segmented("landing", [
+        { value: "home", label: "Home" },
+        { value: "library", label: "Library" },
+        { value: "watch", label: "Watch" },
+      ])),
   );
 
   /* Motion is a tri-state in the data model (so it can mean "follow the OS"),
@@ -132,6 +148,7 @@ function appearance() {
       if (await confirm({ title: "Reset settings", message: "Every preference returns to its default. Your archive and stars are untouched.", confirmLabel: "Reset" })) {
         resetPrefs();
         toast("Settings reset");
+        openSettings("appearance");
       }
     },
   }));
@@ -280,6 +297,7 @@ function data() {
         state.library.progress = {};
         import("../core/store.js").then(({ setMany, KEYS }) =>
           setMany({ [KEYS.library]: state.library }));
+        notify();
         toast("History cleared");
       },
     }, icon("refresh", 17), "Clear seen history"),

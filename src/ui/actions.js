@@ -9,7 +9,7 @@ import { h, icon } from "./dom.js";
 import { overlay, toast, confirm } from "./feedback.js";
 import { state, set, markStarred, markHidden, markViewed, toggleSelected } from "../core/state.js";
 import { post as postOf } from "../core/query.js";
-import { avatar, fmtDuration, fmtCount } from "./media.js";
+import { fmtDuration, fmtCount } from "./media.js";
 
 /**
  * The verbs available on one item, in canonical order. The bottom sheet
@@ -168,15 +168,6 @@ export function selectionBar(host) {
   return render;
 }
 
-async function bulkConfirm() {
-  return confirm({
-    title: "Apply to selection",
-    message: "This changes every item you have selected. It can be undone from Settings.",
-    confirmLabel: "Apply",
-  });
-}
-void bulkConfirm;
-
 /* ----------------------------------------------------------------- verbs -- */
 
 async function copy(text) {
@@ -203,4 +194,3 @@ function download(item) {
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-void avatar;

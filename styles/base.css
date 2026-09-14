@@ -246,6 +246,11 @@ h1, h2, h3, p, .wrap-anywhere { overflow-wrap: anywhere; }
 .sk--hero { height: clamp(200px, 42vw, 340px); border-radius: var(--r-md); }
 .sk--tile { aspect-ratio: 4 / 5; border-radius: var(--r-sm); }
 .sk-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--gap); }
+/* The shimmer is decoration; the grey box already says "loading". */
+@media (prefers-reduced-motion: reduce) {
+  .sk::after { animation: none; }
+}
+:root[data-motion="reduced"] .sk::after { animation: none; }
 @media (min-width: 720px) { .sk-row { grid-template-columns: repeat(5, 1fr); } }
 
 /* ==========================================================================

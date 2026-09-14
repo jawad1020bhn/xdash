@@ -408,7 +408,12 @@ body[data-selecting="true"] .lib__top { inset-block-end: calc(var(--tabbar-h) + 
 }
 @media (prefers-reduced-motion: reduce) {
   .watch__burst, .watch__flash { display: none; }
+  .watch__tap, .watch__rate { animation: none; }
 }
+:root[data-motion="reduced"] .watch__burst,
+:root[data-motion="reduced"] .watch__flash { display: none; }
+:root[data-motion="reduced"] .watch__tap,
+:root[data-motion="reduced"] .watch__rate { animation: none; }
 @keyframes pulse { 50% { scale: 1.06; } }
 
 .watch__flash {

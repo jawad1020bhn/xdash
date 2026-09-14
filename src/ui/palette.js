@@ -9,8 +9,8 @@
 
 import { h, icon, clear, nextFrame } from "./dom.js";
 import { overlay } from "./feedback.js";
-import { state, setQuery, set, markStarred } from "../core/state.js";
-import { results, parseSearch, topAuthors, post as postOf, SORT_LABELS } from "../core/query.js";
+import { state, setQuery, markStarred } from "../core/state.js";
+import { parseSearch, post as postOf } from "../core/query.js";
 import { thumb, avatar, fmtCount, fmtAgo } from "./media.js";
 import { openViewer } from "../viewer.js";
 
@@ -55,6 +55,10 @@ export function openPalette(initial = "") {
       { icon: "home", label: "Go to Home", run: () => go("home") },
       { icon: "grid", label: "Go to Library", run: () => go("library") },
       { icon: "play", label: "Start watching", run: () => go("watch") },
+      { icon: "plus", label: "New entry", run: () => {
+        sheet.close();
+        import("../views/composer.js").then((m) => m.openComposer());
+      } },
       { icon: "video", label: "Only videos", run: () => filter({ kind: "video" }) },
       { icon: "image", label: "Only photos", run: () => filter({ kind: "photo" }) },
       { icon: "eye", label: "Only things I haven't seen", run: () => filter({ unseen: true }) },
@@ -104,7 +108,7 @@ export function openPalette(initial = "") {
       }
       if (hits.length) {
         list.append(section(`Posts · ${hits.length}${hits.length >= MAX_RESULTS ? "+" : ""}`));
-        hits.forEach((item, i) => list.append(postRow(item, i)));
+        hits.forEach((item, i) => list.append(postRow(item, i, hits)));
       }
 
       /* --- creators --- */
@@ -122,7 +126,6 @@ export function openPalette(initial = "") {
       if (recent.length) {
         list.append(section("Recent"));
         for (const term of recent) {
-          items.push({ el: null });
           list.append(h("button.pal-row", {
             role: "option", type: "button",
             onclick: () => { input.value = term; render(); input.focus(); },
@@ -159,14 +162,16 @@ export function openPalette(initial = "") {
     return h("h3.palette__section", { text: label });
   }
 
-  function postRow(item, i) {
+  function postRow(item, i, hits) {
     const p = postOf(item);
     const row = h("button.pal-row", {
       role: "option", type: "button", "aria-selected": "false",
       onclick: () => {
         remember(input.value.trim());
         sheet.close();
-        openViewer(results().length ? results() : [item], Math.max(0, results().indexOf(item)), { fallback: [item] });
+        /* The viewer steps through what you searched, not whatever the
+           Library happens to be filtered to — those are different lists. */
+        openViewer(hits, i);
       },
     },
       h("span.pal-row__thumb", thumb(item, p, { sizes: "80px" })),

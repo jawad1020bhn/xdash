@@ -29,6 +29,7 @@ export const PREF_DEFAULTS = {
   showSeen: true,           // dim tiles you have already opened
   blurMedia: false,         // privacy blur until tapped
   landing: "home",
+  recentSearches: [],       // palette history, newest first
 
   /* Access — user-set, replacing the hard-coded password the old app shipped */
   pin: null,

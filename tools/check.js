@@ -297,6 +297,48 @@ ok("new entry tiles the library", hasLocalTile);
 ok("posting confirms with a toast",
   [...d.querySelectorAll(".toast")].some((t) => /Saved to your archive/.test(t.textContent)));
 
+/* ------------------------------------------------- palette ---- */
+
+console.log("\n── Palette ──");
+d.getElementById("searchBtn").dispatchEvent(new window.Event("click", { bubbles: true }));
+await new Promise((r) => setTimeout(r, 700));
+ok("palette opens from the navbar", q(".palette") === 1);
+
+const palInput = d.querySelector(".palette__input");
+palInput.value = "the";
+palInput.dispatchEvent(new window.Event("input", { bubbles: true }));
+await new Promise((r) => setTimeout(r, 400));
+ok("palette searches the archive", q(".palette .pal-row") > 0, `${q(".palette .pal-row")} rows`);
+
+palInput.value = "new entry";
+palInput.dispatchEvent(new window.Event("input", { bubbles: true }));
+await new Promise((r) => setTimeout(r, 400));
+ok("palette offers the composer command",
+  [...d.querySelectorAll(".palette .pal-row__label")].some((el) => el.textContent === "New entry"));
+d.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+await new Promise((r) => setTimeout(r, 500));
+ok("escape closes the palette", q(".palette") === 0);
+
+/* ------------------------------------------------- settings ---- */
+
+console.log("\n── Settings ──");
+d.getElementById("menuBtn").dispatchEvent(new window.Event("click", { bubbles: true }));
+await new Promise((r) => setTimeout(r, 700));
+const settingsRow = [...d.querySelectorAll(".menu-row")].find((el) => el.textContent.includes("Settings"));
+settingsRow.dispatchEvent(new window.Event("click", { bubbles: true }));
+await new Promise((r) => setTimeout(r, 700));
+ok("settings opens from the menu", q(".settings__tabs") === 1);
+ok("settings exposes the start screen",
+  [...d.querySelectorAll(".set-row b")].some((el) => el.textContent === "Start on"));
+
+const dataTab = [...d.querySelectorAll(".settings__tabs .seg__item")].find((el) => el.textContent === "Your data");
+dataTab.dispatchEvent(new window.Event("click", { bubbles: true }));
+await new Promise((r) => setTimeout(r, 300));
+ok("data tab reports facts", q(".settings__fact") === 6);
+d.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+await new Promise((r) => setTimeout(r, 500));
+ok("escape closes every sheet", q(".sheet") === 0);
+
 /* ---------------------------------------------------------------- done -- */
 
 console.log("\n── Errors during boot ──");

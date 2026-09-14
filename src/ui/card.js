@@ -12,7 +12,7 @@
 
 import { h, icon, isTouch, haptic } from "./dom.js";
 import { thumb, avatar, describe, fmtCount, fmtAgo, fmtDuration } from "./media.js";
-import { state, isViewed, isStarred, toggleSelected, markStarred } from "../core/state.js";
+import { state, isViewed, isStarred, toggleSelected } from "../core/state.js";
 import { post as postOf } from "../core/query.js";
 import { openViewer } from "../viewer.js";
 import { itemActions } from "./actions.js";

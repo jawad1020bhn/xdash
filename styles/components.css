@@ -365,6 +365,11 @@ body[data-selecting="true"] .tile__pick,
   animation: spin 700ms linear infinite;
 }
 @keyframes spin { to { rotate: 360deg; } }
+/* A static spinner still says "busy" by being there; rotation adds nothing. */
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation: none; }
+}
+:root[data-motion="reduced"] .spinner { animation: none; }
 
 .kbd {
   display: inline-block; padding: 1px 6px; border-radius: 5px;
