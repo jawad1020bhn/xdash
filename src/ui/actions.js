@@ -7,12 +7,46 @@
 
 import { h, icon } from "./dom.js";
 import { overlay, toast, confirm } from "./feedback.js";
-import { state, markStarred, markHidden, markArchived, markViewed } from "../core/state.js";
+import { state, markStarred, markHidden, markViewed, toggleSelected } from "../core/state.js";
 import { post as postOf } from "../core/query.js";
 import { avatar, fmtDuration, fmtCount } from "./media.js";
-import { syncCards } from "./card.js";
 
-export function openItemActions(item, list, index, anchor) {
+/**
+ * The verbs available on one item, in canonical order. The bottom sheet
+ * (viewer and Watch "more" buttons) and the context menu (long-press and
+ * right-click) render the same list — one source of truth, two presentations.
+ * Each verb is { icon, label, danger?, act }; callers close their own surface.
+ */
+export function itemActions(item, list, index) {
+  const p = postOf(item);
+  const starred = !!state.library.starred[item.id];
+  const seen = !!state.library.viewed[item.id];
+  return [
+    { icon: "play", label: "Open",
+      act: () => import("../viewer.js").then((m) => m.openViewer(list, index)) },
+    { icon: "star", label: starred ? "Remove star" : "Star",
+      act: () => { markStarred(item.id, !starred); toast(starred ? "Star removed" : "Starred"); } },
+    { icon: "user", label: `Everything by @${p.author_username || "unknown"}`,
+      act: () => { import("../core/state.js").then(({ setQuery }) => {
+        setQuery({ author: p.author_username, search: "" });
+        import("../shell.js").then(({ navigate }) => navigate("library"));
+      }); } },
+    { icon: "copy", label: "Copy link to post",
+      act: async () => { await copy(p.canonical_url || p.tweet_url || ""); toast("Link copied"); } },
+    { icon: "external", label: "Open on X",
+      act: () => { open(p.canonical_url || p.tweet_url, "_blank", "noopener"); } },
+    { icon: "download", label: item.kind === "photo" ? "Download image" : "Download video",
+      act: () => download(item) },
+    { icon: "eye", label: seen ? "Mark as unseen" : "Mark as seen",
+      act: () => markViewed(item.id, !seen) },
+    { icon: "check", label: "Select",
+      act: () => toggleSelected(item.id) },
+    { icon: "eyeOff", label: "Hide from my library", danger: true,
+      act: () => { markHidden(item.id, true); toast("Hidden from your library"); } },
+  ];
+}
+
+export function openItemActions(item, list, index) {
   const p = postOf(item);
   const sheet = overlay({ title: null, size: "sm" });
 
@@ -31,31 +65,9 @@ export function openItemActions(item, list, index, anchor) {
     ),
   ));
 
-  const starred = !!state.library.starred[item.id];
-  const actions = [
-    { icon: "play", label: "Open", run: () => { sheet.close(); import("../viewer.js").then((m) => m.openViewer(list, index)); } },
-    { icon: starred ? "star" : "star", label: starred ? "Remove star" : "Star",
-      run: () => { markStarred(item.id, !starred); sheet.close(); toast(starred ? "Star removed" : "Starred"); } },
-    { icon: "user", label: `Everything by @${p.author_username || "unknown"}`,
-      run: () => { sheet.close(); import("../core/state.js").then(({ setQuery }) => {
-        setQuery({ author: p.author_username, search: "" });
-        import("../shell.js").then(({ navigate }) => navigate("library"));
-      }); } },
-    { icon: "copy", label: "Copy link to post",
-      run: async () => { await copy(p.canonical_url || p.tweet_url || ""); sheet.close(); toast("Link copied"); } },
-    { icon: "external", label: "Open on X",
-      run: () => { open(p.canonical_url || p.tweet_url, "_blank", "noopener"); sheet.close(); } },
-    { icon: "download", label: item.kind === "photo" ? "Download image" : "Download video",
-      run: () => { download(item); sheet.close(); } },
-    { icon: "eye", label: state.library.viewed[item.id] ? "Mark as unseen" : "Mark as seen",
-      run: () => { markViewed(item.id, !state.library.viewed[item.id]); sheet.close(); } },
-    { icon: "eyeOff", label: "Hide from my library", danger: true,
-      run: () => { markHidden(item.id, true); sheet.close(); toast("Hidden from your library"); } },
-  ];
-
-  for (const a of actions) {
+  for (const a of itemActions(item, list, index)) {
     sheet.content.append(h(`button.menu-row${a.danger ? ".menu-row--danger" : ""}`, {
-      type: "button", onclick: a.run,
+      type: "button", onclick: () => { sheet.close(); a.act(); },
     },
       h("span.menu-row__icon", icon(a.icon, 19)),
       h("span.menu-row__text", h("b", { text: a.label })),

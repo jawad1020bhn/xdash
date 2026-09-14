@@ -210,7 +210,9 @@ ok("grid windowed, not fully rendered", tiles > 0 && tiles < 200,
 ok("scroll height reflects the whole archive", viewportH > 10_000,
   `${Math.round(viewportH)}px of scroll height`);
 ok("search field present", !!d.querySelector(".lib__search input"));
-ok("filter chips present", q(".lib__chips .chip") >= 3, `${q(".lib__chips .chip")} chips`);
+ok("segmented kind control present", q(".lib__seg .seg__item") === 3, `${q(".lib__seg .seg__item")} segments`);
+ok("filter chips present", q(".lib__chips .chip") >= 2, `${q(".lib__chips .chip")} chips`);
+ok("sort control present", q(".lib__sort") === 1);
 
 /* Search must actually narrow the result set. */
 const search = d.querySelector(".lib__search input");

@@ -15,7 +15,8 @@ import { thumb, avatar, describe, fmtCount, fmtAgo, fmtDuration } from "./media.
 import { state, isViewed, isStarred, toggleSelected, markStarred } from "../core/state.js";
 import { post as postOf } from "../core/query.js";
 import { openViewer } from "../viewer.js";
-import { openItemActions } from "./actions.js";
+import { itemActions } from "./actions.js";
+import { openContextMenu } from "../components/contextmenu.js";
 
 /**
  * @param item   projected media item
@@ -95,7 +96,7 @@ export function card(item, list, { shape = "tile", eager = false, index = -1 } =
   });
   el.addEventListener("contextmenu", (e) => {
     e.preventDefault();
-    openItemActions(item, list, at, el);
+    openCardMenu(e.clientX, e.clientY);
   });
 
   /* Long press = the touch equivalent of a right click. 450ms is long enough
@@ -108,7 +109,7 @@ export function card(item, list, { shape = "tile", eager = false, index = -1 } =
       moved = false;
       startX = e.clientX; startY = e.clientY;
       timer = setTimeout(() => {
-        if (!moved) { haptic(18); openItemActions(item, list, at, el); }
+        if (!moved) { haptic(18); openCardMenu(startX, startY); }
       }, 450);
     });
     el.addEventListener("pointermove", (e) => {
@@ -118,6 +119,14 @@ export function card(item, list, { shape = "tile", eager = false, index = -1 } =
     });
     ["pointerup", "pointercancel", "pointerleave"].forEach((n) =>
       el.addEventListener(n, () => clearTimeout(timer)));
+  }
+
+  function openCardMenu(x, y) {
+    openContextMenu({
+      x, y,
+      preview: { src: item.thumb || item.poster || "", label: describe(item, p) },
+      actions: itemActions(item, list, at),
+    });
   }
 
   return el;

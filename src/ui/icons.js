@@ -21,6 +21,7 @@ const FILLED = {
   chevronDown: "M7.4 8.6 6 10l6 6 6-6-1.4-1.4L12 13.2 7.4 8.6Z",
   arrowLeft: "M20 11H7.8l5.6-5.6L12 4l-8 8 8 8 1.4-1.4L7.8 13H20v-2Z",
   arrowRight: "M4 11h12.2l-5.6-5.6L12 4l8 8-8 8-1.4-1.4L16.2 13H4v-2Z",
+  arrowUp: "M11 20V7.8l-5.6 5.6L4 12l8-8 8 8-1.4 1.4L13 7.8V20h-2Z",
   external: "M14 3h7v7h-2V6.4l-8.3 8.3-1.4-1.4L17.6 5H14V3ZM5 5h5v2H6v11h11v-4h2v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z",
   copy: "M8 2h10a2 2 0 0 1 2 2v12h-2V4H8V2ZM4 6h11a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1Zm1 2v12h9V8H5Z",
   trash: "M9 3h6l1 2h4v2H4V5h4l1-2ZM6 9h12l-.8 11.1a1 1 0 0 1-1 .9H7.8a1 1 0 0 1-1-.9L6 9Z",
