@@ -7,7 +7,7 @@
 
 import { h, icon } from "./dom.js";
 import { overlay, toast, confirm } from "./feedback.js";
-import { state, markStarred, markHidden, markViewed, toggleSelected } from "../core/state.js";
+import { state, set, markStarred, markHidden, markViewed, toggleSelected } from "../core/state.js";
 import { post as postOf } from "../core/query.js";
 import { avatar, fmtDuration, fmtCount } from "./media.js";
 
@@ -21,6 +21,9 @@ export function itemActions(item, list, index) {
   const p = postOf(item);
   const starred = !!state.library.starred[item.id];
   const seen = !!state.library.viewed[item.id];
+  /* A local entry has no URL on X: copy carries its text instead, "Open on X"
+     makes no sense, and the entry itself can be deleted. */
+  const isLocal = p.source_type === "local";
   return [
     { icon: "play", label: "Open",
       act: () => import("../viewer.js").then((m) => m.openViewer(list, index)) },
@@ -31,10 +34,13 @@ export function itemActions(item, list, index) {
         setQuery({ author: p.author_username, search: "" });
         import("../shell.js").then(({ navigate }) => navigate("library"));
       }); } },
-    { icon: "copy", label: "Copy link to post",
-      act: async () => { await copy(p.canonical_url || p.tweet_url || ""); toast("Link copied"); } },
-    { icon: "external", label: "Open on X",
-      act: () => { open(p.canonical_url || p.tweet_url, "_blank", "noopener"); } },
+    { icon: "copy", label: isLocal ? "Copy text" : "Copy link to post",
+      act: async () => {
+        await copy(isLocal ? (p.text || "") : (p.canonical_url || p.tweet_url || ""));
+        toast(isLocal ? "Text copied" : "Link copied");
+      } },
+    ...(isLocal ? [] : [{ icon: "external", label: "Open on X",
+      act: () => { open(p.canonical_url || p.tweet_url, "_blank", "noopener"); } }]),
     { icon: "download", label: item.kind === "photo" ? "Download image" : "Download video",
       act: () => download(item) },
     { icon: "eye", label: seen ? "Mark as unseen" : "Mark as seen",
@@ -43,7 +49,44 @@ export function itemActions(item, list, index) {
       act: () => toggleSelected(item.id) },
     { icon: "eyeOff", label: "Hide from my library", danger: true,
       act: () => { markHidden(item.id, true); toast("Hidden from your library"); } },
+    ...(isLocal ? [{ icon: "trash", label: "Delete this entry", danger: true,
+      act: () => deleteLocalEntry(item) }] : []),
   ];
+}
+
+/** Deletes a local entry, with Undo — destruction without a way back is a bug. */
+async function deleteLocalEntry(item) {
+  const p = postOf(item);
+  const yes = await confirm({
+    title: "Delete this entry?",
+    message: "This removes the entry and its photos from this device. This cannot be undone.",
+    confirmLabel: "Delete",
+    danger: true,
+  });
+  if (!yes) return;
+  const { removeLocalEntry, addLocalEntry } = await import("../core/local.js");
+  const { mergeLocal } = await import("../core/data.js");
+  const gone = await removeLocalEntry(p.id);
+  if (!gone) return;
+  const dropped = Array.isArray(gone.media_items) ? gone.media_items.length : 1;
+  const posts = new Map(state.index.posts);
+  posts.delete(p.id);
+  set({
+    index: {
+      posts,
+      media: state.index.media.filter((m) => m.postId !== p.id),
+      authors: state.index.authors
+        .map((a) => (a.username === "you" ? { ...a, count: a.count - dropped } : a))
+        .filter((a) => a.count > 0),
+    },
+  });
+  toast("Entry deleted", {
+    action: "Undo",
+    onAction: async () => {
+      await addLocalEntry(gone);
+      set({ index: mergeLocal(state.index, [gone]) });
+    },
+  });
 }
 
 export function openItemActions(item, list, index) {

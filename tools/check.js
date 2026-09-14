@@ -129,7 +129,7 @@ async function run(width, label) {
     "HTMLElement", "Element", "Node", "Event", "CustomEvent", "DocumentFragment",
     "getComputedStyle", "requestAnimationFrame", "cancelAnimationFrame",
     "matchMedia", "IntersectionObserver", "ResizeObserver", "localStorage",
-    "sessionStorage", "Blob", "URL", "Image", "addEventListener",
+    "sessionStorage", "Blob", "URL", "Image", "File", "FileReader", "addEventListener",
     "removeEventListener", "dispatchEvent", "fetch", "innerWidth", "innerHeight",
     "scrollTo", "scrollY", "devicePixelRatio", "screen"]) {
     if (window[key] === undefined) continue;
@@ -248,6 +248,54 @@ ok("first slide carries rail actions", q('.watch__slide[data-index="0"] .watch__
 ok("first slide carries meta and progress",
   q('.watch__slide[data-index="0"] .watch__meta') === 1 &&
   q('.watch__slide[data-index="0"] .watch__progress') === 1);
+
+/* ------------------------------------------------- the viewer sheet ---- */
+
+console.log("\n── Viewer sheet ──");
+d.querySelector('.tabbar__item[data-route="library"]').dispatchEvent(new window.Event("click", { bubbles: true }));
+await new Promise((r) => setTimeout(r, 1200));
+d.querySelector(".grid .card").dispatchEvent(new window.Event("click", { bubbles: true }));
+await new Promise((r) => setTimeout(r, 600));
+
+ok("viewer opens from a card", q(".viewer") === 1);
+ok("viewer carries grabber and share",
+  q(".viewer__grab") === 1 && !!d.querySelector('.viewer__top button[aria-label="Share"]'));
+d.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+await new Promise((r) => setTimeout(r, 600));
+ok("escape closes the viewer", q(".viewer") === 0);
+
+/* ------------------------------------------------- the composer ---- */
+
+console.log("\n── Composer ──");
+d.getElementById("composeBtn").dispatchEvent(new window.Event("click", { bubbles: true }));
+await new Promise((r) => setTimeout(r, 700));
+
+ok("composer opens from the navbar", q(".composer") === 1);
+ok("post waits for a photo", d.querySelector(".composer__post")?.disabled === true);
+
+const area = d.querySelector(".composer__text");
+area.value = "composertest hello";
+area.dispatchEvent(new window.Event("input", { bubbles: true }));
+const picker = d.querySelector(".composer input[type=file]");
+const photo = new window.File(["x".repeat(64)], "p.jpg", { type: "image/jpeg" });
+Object.defineProperty(picker, "files", { value: [photo], configurable: true });
+picker.dispatchEvent(new window.Event("change", { bubbles: true }));
+await new Promise((r) => setTimeout(r, 900));
+
+ok("attached photo previews", q(".composer__thumb") === 1);
+ok("post enables with a photo", d.querySelector(".composer__post")?.disabled === false);
+d.querySelector(".composer__post").dispatchEvent(new window.Event("click", { bubbles: true }));
+await new Promise((r) => setTimeout(r, 1200));
+
+const stored = JSON.parse(window.localStorage.getItem("xLocalPosts") || "[]");
+ok("entry persisted and draft cleared",
+  stored.length === 1 && window.localStorage.getItem("xDraft") === null,
+  `${stored.length} local entries`);
+const hasLocalTile = [...d.querySelectorAll(".grid .card img")]
+  .some((img) => (img.getAttribute("src") || "").startsWith("data:"));
+ok("new entry tiles the library", hasLocalTile);
+ok("posting confirms with a toast",
+  [...d.querySelectorAll(".toast")].some((t) => /Saved to your archive/.test(t.textContent)));
 
 /* ---------------------------------------------------------------- done -- */
 

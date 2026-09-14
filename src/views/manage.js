@@ -10,7 +10,7 @@
 import { h, icon } from "../ui/dom.js";
 import { overlay, toast, confirm } from "../ui/feedback.js";
 import { state, set } from "../core/state.js";
-import { project, invalidateIndex } from "../core/data.js";
+import { project, mergeLocal, invalidateIndex } from "../core/data.js";
 import { persistBookmarks, clearSelection } from "../core/state.js";
 import { KEYS, setMany, backendName, estimateBytes } from "../core/store.js";
 import { fmtCount } from "../ui/media.js";
@@ -208,8 +208,9 @@ async function ingest(text, sheet) {
   clearSelection();
   await persistBookmarks(bookmarks);
   await invalidateIndex();
+  const { localEntries } = await import("../core/local.js");
 
-  const index = project(bookmarks);
+  const index = mergeLocal(project(bookmarks), await localEntries());
   set({ index, source: "storage" });
   toast(`Imported ${fmtCount(index.media.length)} items`);
   sheet?.close();

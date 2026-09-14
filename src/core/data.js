@@ -17,6 +17,7 @@
 
 import { KEYS, getMany, setMany } from "./store.js";
 import { set } from "./state.js";
+import { localEntries } from "./local.js";
 
 /* Fields kept per post. Everything else in the export is discarded. */
 const POST_FIELDS = [
@@ -218,8 +219,9 @@ export async function loadIndex(onProgress) {
  */
 export async function refreshIndex(onProgress) {
   const result = await loadIndex(onProgress);
+  const merged = mergeLocal(result, await localEntries());
   set({
-    index: { posts: result.posts, media: result.media, authors: result.authors },
+    index: { posts: merged.posts, media: merged.media, authors: merged.authors },
     source: result.source,
     ready: true,
   });
@@ -233,6 +235,27 @@ function revive(cached) {
     media: cached.media,
     authors: cached.authors,
   };
+}
+
+/**
+ * Merges entries created on this device into a loaded index. Local posts are
+ * newest-first by construction (each new entry is younger than the last), and
+ * the "you" author row absorbs their counts. The file projection is never
+ * mutated — this returns a new index object.
+ */
+export function mergeLocal(index, rawList) {
+  if (!rawList?.length) return index;
+  const extra = project([...rawList].reverse());
+  const posts = new Map(index.posts);
+  for (const [id, p] of extra.posts) posts.set(id, p);
+  const media = [...extra.media, ...index.media];
+  const authors = index.authors.map((a) => ({ ...a }));
+  for (const a of extra.authors) {
+    const found = authors.find((x) => x.username === a.username);
+    if (found) found.count += a.count;
+    else authors.unshift({ ...a });
+  }
+  return { posts, media, authors };
 }
 
 /** Drops the projection cache — used after an import or a "reset" action. */

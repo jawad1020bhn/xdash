@@ -290,6 +290,47 @@ body[data-selecting="true"] .tile__pick,
 }
 .toast.is-in { opacity: 1; translate: 0 0; scale: 1; }
 .toast__msg { flex: 1 1 auto; min-width: 0; }
+.composer { display: grid; gap: var(--s-3); }
+.composer__as { margin: 0; font-size: 13px; color: var(--text-2); }
+.composer__text {
+  width: 100%; min-height: 96px; max-height: 168px; resize: none;
+  font: inherit; font-size: 16px; line-height: 1.5; color: inherit;
+  background: transparent; border: 0; padding: 2px;
+}
+.composer__text:focus { outline: none; }
+.composer__text::placeholder { color: var(--text-3); }
+.composer__meta { display: flex; align-items: center; justify-content: space-between; }
+.composer__count { color: var(--text-3); }
+.composer__discard {
+  font-size: 13px; color: var(--danger);
+  padding: 6px 8px; margin: -6px -8px; border-radius: var(--r-sm);
+}
+.composer__discard[hidden] { display: none; }
+.composer__attach { justify-content: center; border-style: dashed; }
+.composer__attach small { font-weight: 400; opacity: 0.65; }
+.composer__previews {
+  display: flex; gap: var(--s-2); overflow-x: auto;
+  padding-block: 2px; margin-inline: -2px; padding-inline: 2px;
+}
+.composer__previews[hidden] { display: none; }
+.composer__thumb { position: relative; flex: none; }
+.composer__thumb img {
+  display: block; width: 84px; height: 84px; object-fit: cover;
+  border-radius: var(--r-md); background: var(--surface-3);
+}
+.composer__remove {
+  position: absolute; top: -8px; inset-inline-end: -8px;
+  display: grid; place-items: center; width: 26px; height: 26px;
+  border-radius: 50%; background: var(--text); color: var(--surface);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.3);
+}
+.composer__foot {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--s-3); padding-top: var(--s-2);
+  border-top: 1px solid var(--line);
+}
+.composer__hint { color: var(--text-3); }
+
 .toast__action {
   flex: none; color: var(--accent); font-weight: 650; font-size: 14px;
   min-height: 32px; padding-inline: var(--s-2);

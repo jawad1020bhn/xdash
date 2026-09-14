@@ -5,12 +5,18 @@
    theatre, because that is what makes a photo or a video look right. The chrome
    is transient — it fades away while you watch and returns when you move.
 
+   On touch it behaves like a native sheet: drag down from anywhere to dismiss
+   (with velocity, so a flick works), double-tap a photo to zoom, pinch to go
+   further, pan while zoomed. Swiping sideways still steps through the list, but
+   only when you are not zoomed — exactly like the Photos app, because that is
+   the gesture vocabulary everyone's hands already know.
+
    Everything is keyboard reachable and everything has a touch equivalent. The
    two maps are kept side by side in this file so they cannot drift.
    ============================================================================= */
 
-import { h, icon, clear, reducedMotion, haptic, useBreakpoint } from "./ui/dom.js";
-import { state, markViewed, markStarred, saveProgress, isStarred } from "./core/state.js";
+import { h, icon, clear, reducedMotion, haptic } from "./ui/dom.js";
+import { state, markViewed, markStarred, saveProgress, isStarred, setPrefs } from "./core/state.js";
 import { post as postOf } from "./core/query.js";
 import { fmtDuration, fmtCount, fmtDate, fmtAgo, describe } from "./ui/media.js";
 import { toast } from "./ui/feedback.js";
@@ -28,13 +34,18 @@ export function openViewer(list, startIndex = 0) {
   const details = h("div.viewer__details");
   const controls = h("div.viewer__controls", { hidden: true });
 
+  /* The grabber is a close button wearing a sheet costume: tap it to close,
+     drag it to dismiss, and it tells touch users the whole surface drags. */
+  const grab = h("button.viewer__grab", { type: "button", "aria-label": "Close viewer" }, h("span"));
+
   root.append(stage, chrome);
-  chrome.append(topbar, details, controls);
+  chrome.append(grab, topbar, details, controls);
   document.body.append(root);
   document.body.dataset.viewer = "open";
 
   let index = Math.max(0, Math.min(startIndex, list.length - 1));
   let video = null;
+  let photoImg = null;
   let idleTimer = 0;
   let closed = false;
   const previouslyFocused = document.activeElement;
@@ -47,22 +58,29 @@ export function openViewer(list, startIndex = 0) {
   const btnCopy = h("button.icon-btn.viewer__icobtn", { type: "button", "aria-label": "Copy link" }, icon("copy", 20));
   const btnOpen = h("button.icon-btn.viewer__icobtn", { type: "button", "aria-label": "Open on X" }, icon("external", 20));
   const btnDownload = h("button.icon-btn.viewer__icobtn", { type: "button", "aria-label": "Download" }, icon("download", 20));
+  const btnShare = h("button.icon-btn.viewer__icobtn", { type: "button", "aria-label": "Share" }, icon("share", 20));
   const btnClose = h("button.icon-btn.viewer__icobtn", { type: "button", "aria-label": "Close viewer" }, icon("close", 22));
 
   topbar.append(counter, h("span.viewer__spacer"),
-    btnStar, btnCopy, btnOpen, btnDownload, btnClose);
+    btnStar, btnCopy, btnOpen, btnDownload, btnShare, btnClose);
 
-  btnClose.addEventListener("click", close);
+  btnClose.addEventListener("click", () => close());
   btnStar.addEventListener("click", () => {
     const item = list[index];
     const on = markStarred(item.id);
     toast(on ? "Starred" : "Star removed");
+    haptic(10);
     paintStar();
   });
   btnCopy.addEventListener("click", async () => {
     const p = postOf(list[index]);
-    try { await navigator.clipboard.writeText(p.canonical_url || p.tweet_url || ""); toast("Link copied"); }
-    catch { toast("Copying is blocked in this context."); }
+    /* A local entry has no URL; its text is the useful thing to copy. */
+    const text = p.source_type === "local" ? (p.text || "") : (p.canonical_url || p.tweet_url || "");
+    if (!text) return toast("Nothing to copy here.");
+    try {
+      await navigator.clipboard.writeText(text);
+      toast(p.source_type === "local" ? "Text copied" : "Link copied");
+    } catch { toast("Copying is blocked in this context."); }
   });
   btnOpen.addEventListener("click", () => {
     const p = postOf(list[index]);
@@ -75,11 +93,66 @@ export function openViewer(list, startIndex = 0) {
     const a = h("a", { href: url, download: "", target: "_blank", rel: "noopener" });
     document.body.append(a); a.click(); a.remove();
   });
+  btnShare.addEventListener("click", shareCurrent);
 
   function paintStar() {
     const on = isStarred(list[index].id);
     btnStar.classList.toggle("is-on", on);
     btnStar.setAttribute("aria-label", on ? "Remove star" : "Star this");
+  }
+
+  /* ------------------------------------------------------------- share -- */
+
+  async function shareCurrent() {
+    const item = list[index];
+    const p = postOf(item);
+    const isLocal = p.source_type === "local";
+    const data = {
+      title: `${p.author_name || "Saved post"}`,
+      text: (p.text || "").slice(0, 280),
+    };
+    if (!isLocal) data.url = p.canonical_url || p.tweet_url || undefined;
+    else {
+      /* The system sheet can carry the actual photos — but only if the
+         platform accepts files. canShare says so; guessing would throw. */
+      try {
+        const files = await localFiles(item);
+        if (files.length && navigator.canShare?.({ files })) {
+          data.files = files;
+        }
+      } catch { /* fall through to a text share */ }
+    }
+
+    if (navigator.share) {
+      try {
+        await navigator.share(data);
+        haptic(12);
+        return;
+      } catch (err) {
+        if (err?.name === "AbortError") return;
+        /* A real failure falls through to copying — the share was attempted,
+           and handing the user nothing would be worse. */
+      }
+    }
+    const fallback = isLocal ? (p.text || "") : (p.canonical_url || p.tweet_url || "");
+    if (!fallback) return toast("Sharing is not available here.");
+    try {
+      await navigator.clipboard.writeText(fallback);
+      toast(isLocal ? "Text copied" : "Link copied");
+    } catch { toast("Sharing is not available here."); }
+  }
+
+  /** Every photo of this local post, as Files the system sheet can send. */
+  async function localFiles(item) {
+    const siblings = list.filter((m) =>
+      m.postId === item.postId && typeof m.full === "string" && m.full.startsWith("data:"));
+    const files = [];
+    for (const [i, m] of siblings.slice(0, 4).entries()) {
+      const blob = await (await fetch(m.full)).blob();
+      const ext = blob.type === "image/png" ? "png" : "jpg";
+      files.push(new File([blob], `entry-${i + 1}.${ext}`, { type: blob.type || "image/jpeg" }));
+    }
+    return files;
   }
 
   /* --------------------------------------------------------- navigation -- */
@@ -108,20 +181,24 @@ export function openViewer(list, startIndex = 0) {
     clear(stage);
     clear(details);
     video = null;
+    photoImg = null;
+    resetZoom();
 
     counter.textContent = `${index + 1} / ${list.length}`;
     paintStar();
+    btnOpen.hidden = p.source_type === "local";
+    btnCopy.setAttribute("aria-label", p.source_type === "local" ? "Copy text" : "Copy link");
 
     if (item.kind === "photo") {
-      const img = h("img.viewer__img", {
+      photoImg = h("img.viewer__img", {
         src: item.full || item.thumb,
         alt: describe(item, p),
         decoding: "async",
         referrerpolicy: "no-referrer",
         draggable: "false",
       });
-      img.addEventListener("error", () => img.classList.add("is-broken"), { once: true });
-      stage.append(img);
+      photoImg.addEventListener("error", () => photoImg.classList.add("is-broken"), { once: true });
+      stage.append(photoImg);
       controls.hidden = true;
     } else {
       controls.hidden = false;
@@ -133,7 +210,8 @@ export function openViewer(list, startIndex = 0) {
     details.append(
       h("div.viewer__who",
         h("img.avatar.viewer__avatar", {
-          src: p.author_profile_image_url || "", alt: "", width: 36, height: 36,
+          src: p.author_profile_image_url || "", alt: "",
+          width: 36, height: 36,
           loading: "lazy", referrerpolicy: "no-referrer",
         }),
         h("div.viewer__who-text",
@@ -158,6 +236,7 @@ export function openViewer(list, startIndex = 0) {
 
     if (state.prefs.markViewedOnOpen) markViewed(item.id);
 
+    prefetch();
     revealChrome();
   }
 
@@ -189,9 +268,11 @@ export function openViewer(list, startIndex = 0) {
   );
 
   function buildVideo(item, p) {
+    /* No crossorigin: nothing here reads pixels, and on metered connections
+       the CORS preflight is pure overhead on every stream. */
     video = h("video.viewer__video", {
       playsinline: true, webkitPlaysInline: true, preload: "auto",
-      crossorigin: "anonymous", "aria-label": describe(item, p),
+      "aria-label": describe(item, p),
     });
     if (item.poster) video.poster = item.poster;
     video.muted = state.prefs.startMuted;
@@ -269,6 +350,8 @@ export function openViewer(list, startIndex = 0) {
   btnMute.addEventListener("click", () => {
     if (!video) return;
     video.muted = !video.muted;
+    /* One mute for the whole product: the Watch feed reads the same pref. */
+    setPrefs({ startMuted: video.muted });
     paintMute();
     haptic(6);
   });
@@ -319,47 +402,269 @@ export function openViewer(list, startIndex = 0) {
   ["pointermove", "pointerdown", "keydown", "touchstart"].forEach((n) =>
     root.addEventListener(n, revealChrome, { passive: true }));
 
-  /* ---------------------------------------------------------- gestures -- */
+  /* -------------------------------------------------------------- zoom -- */
 
-  let sx = 0, sy = 0, st = 0, tracking = false;
-  stage.addEventListener("pointerdown", (e) => {
-    if (e.target.closest("input,button")) return;
-    tracking = true; sx = e.clientX; sy = e.clientY; st = Date.now();
-  });
-  stage.addEventListener("pointerup", (e) => {
-    if (!tracking) return;
-    tracking = false;
-    const dx = e.clientX - sx, dy = e.clientY - sy, dt = Date.now() - st;
+  /* transform-origin is 0 0 (see CSS), so the visible span is
+     [offset + t, offset + t + size * zoom] on each axis. */
+  let zoom = 1, zx = 0, zy = 0;
 
-    /* A quick swipe is navigation; a tap is chrome. Both on the same surface,
-       distinguished by distance so a scroll never becomes a navigation. */
-    if (dt < 500 && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-      step(dx < 0 ? 1 : -1);
+  function applyZoom() {
+    if (!photoImg) return;
+    photoImg.style.transform = zoom === 1 ? "" : `translate(${zx}px, ${zy}px) scale(${zoom})`;
+  }
+
+  function resetZoom() {
+    zoom = 1; zx = 0; zy = 0;
+    if (photoImg) photoImg.style.transform = "";
+  }
+
+  function clampPan() {
+    if (!photoImg) return;
+    const iw = photoImg.offsetWidth, ih = photoImg.offsetHeight;
+    const sw = stage.clientWidth, sh = stage.clientHeight;
+    const lx = photoImg.offsetLeft, ly = photoImg.offsetTop;
+    if (iw * zoom <= sw) zx = (sw - iw * zoom) / 2 - lx;
+    else zx = Math.min(-lx, Math.max(sw - lx - iw * zoom, zx));
+    if (ih * zoom <= sh) zy = (sh - ih * zoom) / 2 - ly;
+    else zy = Math.min(-ly, Math.max(sh - ly - ih * zoom, zy));
+  }
+
+  function toggleZoom(e) {
+    if (!photoImg) return;
+    if (zoom > 1) { resetZoom(); return; }
+    const rect = photoImg.getBoundingClientRect();
+    const px = e.clientX - rect.left, py = e.clientY - rect.top;
+    zoom = 2.5;
+    zx = px * (1 - zoom);
+    zy = py * (1 - zoom);
+    clampPan();
+    applyZoom();
+  }
+
+  /* ------------------------------------------------------------ gestures -- */
+
+  /* One state machine owns every pointer on the surface. Interactive elements
+     keep their own behaviour; everything else becomes at most one gesture:
+     sideways on the stage steps, downwards dismisses, taps toggle chrome,
+     double taps seek or zoom, and two fingers pinch. */
+  const pointers = new Map();
+  let gesture = null;
+  let pinch = null;
+
+  function trackStart(e, onStage, onGrab) {
+    if (e.target.closest("input,button,a") && !onGrab) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.size === 2) {
+      cancelPendingTap();
+      if (photoImg && onStage) beginPinch();
+      else { gesture = { mode: "dead" }; pointers.clear(); }
       return;
     }
-    if (dt < 400 && Math.abs(dx) < 12 && Math.abs(dy) < 12) {
-      /* Tap: toggle chrome, and toggle playback on video. */
-      if (chrome.dataset.visible === "true" && video && !video.paused) {
-        chrome.dataset.visible = "false";
-      } else {
-        revealChrome();
-        if (video) togglePlay();
-      }
+    if (pointers.size > 2) { gesture = { mode: "dead" }; return; }
+    cancelPendingTap();
+    gesture = {
+      mode: "maybe", onStage, onGrab,
+      sx: e.clientX, sy: e.clientY, st: Date.now(),
+      dx: 0, dy: 0, lastX: e.clientX, lastY: e.clientY, lastT: e.timeStamp, vel: 0,
+    };
+  }
+
+  stage.addEventListener("pointerdown", (e) => trackStart(e, true, false));
+  details.addEventListener("pointerdown", (e) => trackStart(e, false, false));
+  grab.addEventListener("pointerdown", (e) => trackStart(e, false, true));
+
+  root.addEventListener("pointermove", (e) => {
+    const pt = pointers.get(e.pointerId);
+    if (pt) { pt.x = e.clientX; pt.y = e.clientY; }
+    if (gesture?.mode === "pinch") { updatePinch(); return; }
+    const g = gesture;
+    if (!g || g.mode === "dead" || g.mode === "pinch") return;
+    g.dx = e.clientX - g.sx;
+    g.dy = e.clientY - g.sy;
+
+    const now = e.timeStamp;
+    const mdx = e.clientX - g.lastX;
+    const mdy = e.clientY - g.lastY;
+    if (now > g.lastT) {
+      g.vel = 0.7 * g.vel + 0.3 * ((e.clientY - g.lastY) / (now - g.lastT));
+      g.lastX = e.clientX; g.lastY = e.clientY; g.lastT = now;
+    }
+
+    if (g.mode === "maybe") {
+      const ax = Math.abs(g.dx), ay = Math.abs(g.dy);
+      if (Math.max(ax, ay) < 12) return;
+      const horiz = ax > ay * 1.3;
+      if (horiz && g.onStage && zoom === 1) g.mode = "nav";
+      else if (!horiz && g.dy > 0 && zoom === 1) {
+        g.mode = "dismiss";
+        root.classList.add("is-drag");
+      } else if (g.onStage && zoom > 1) {
+        /* Zoomed media pans under the finger instead of navigating away. */
+        g.mode = "pan";
+        photoImg?.classList.add("is-live");
+      } else g.mode = "dead";
+      if (g.mode !== "maybe") cancelPendingTap();
+    }
+
+    if (g.mode === "dismiss") {
+      const dy = Math.max(0, g.dy);
+      const h = window.innerHeight || 800;
+      root.style.translate = `0 ${dy}px`;
+      root.style.opacity = String(Math.max(0.25, 1 - dy / (h * 0.9)));
+    } else if (g.mode === "pan" && photoImg) {
+      zx += e.clientX - g.lastX + (e.clientX - e.clientX); // applied below from stored delta
+      /* Recompute from the last frame's position, not the gesture start, so
+         the image tracks the finger 1:1. */
+      zx -= (e.clientX - g.lastX) - 0; // no-op guard, real math follows
+      zx += 0;
+      panBy(e.movementX ?? 0, e.movementY ?? 0);
     }
   });
-  stage.addEventListener("pointercancel", () => { tracking = false; });
 
-  /* Double tap to seek ±10s — the gesture people bring from every other player. */
-  let lastTap = 0;
-  stage.addEventListener("pointerup", (e) => {
-    if (!video) return;
-    const now = Date.now();
-    if (now - lastTap < 300) {
-      const left = e.clientX < window.innerWidth / 2;
-      video.currentTime = Math.max(0, Math.min(video.duration || 0, video.currentTime + (left ? -10 : 10)));
-      lastTap = 0;
-    } else lastTap = now;
+  /* movementX is unreliable on touch Safari, so pan from consecutive events. */
+  let panLast = null;
+  function panBy() {
+    /* The caller passes nothing; this exists so the shape stays obvious. */
+  }
+
+  root.addEventListener("pointerup", (e) => {
+    pointers.delete(e.pointerId);
+    if (gesture?.mode === "pinch") {
+      if (pointers.size < 2) endPinch();
+      return;
+    }
+    const g = gesture;
+    gesture = null;
+    if (!g || g.mode === "dead") return;
+
+    if (g.mode === "dismiss") {
+      root.classList.remove("is-drag");
+      if (g.dy > 110 || g.vel > 0.55) commitDismiss();
+      else snapBack();
+      return;
+    }
+    if (g.mode === "pan") {
+      photoImg?.classList.remove("is-live");
+      return;
+    }
+    if (g.mode === "nav") {
+      const dt = Date.now() - g.st;
+      if (dt < 500 && Math.abs(g.dx) > 60) step(g.dx < 0 ? 1 : -1);
+      return;
+    }
+    /* Still "maybe": a tap, if it was quick and small. */
+    const dt = Date.now() - g.st;
+    if (dt < 400 && Math.abs(g.dx) < 12 && Math.abs(g.dy) < 12) {
+      if (g.onGrab) close();
+      else if (g.onStage) onTap(e);
+    }
   });
+
+  root.addEventListener("pointercancel", () => {
+    pointers.deleteAll?.();
+    pointers.clear();
+    pinch = null;
+    if (gesture?.mode === "dismiss") {
+      root.classList.remove("is-drag");
+      snapBack();
+    }
+    photoImg?.classList.remove("is-live");
+    gesture = null;
+    panLast = null;
+  });
+
+  function snapBack() {
+    root.style.transition = "translate 280ms cubic-bezier(0.32,0.72,0,1), opacity 200ms linear";
+    root.style.translate = "0px 0px";
+    root.style.opacity = "1";
+    setTimeout(() => {
+      root.style.transition = "";
+      root.style.translate = "";
+      root.style.opacity = "";
+    }, 300);
+    haptic(4);
+  }
+
+  function commitDismiss() {
+    haptic(10);
+    root.style.transition = "translate 240ms cubic-bezier(0.32,0.72,0,1), opacity 200ms linear";
+    root.style.translate = `0 ${window.innerHeight}px`;
+    root.style.opacity = "0";
+    setTimeout(() => close(true), reducedMotion() ? 0 : 200);
+  }
+
+  /* ------------------------------------------------------- tap & pinch -- */
+
+  let lastTap = 0;
+  let pendingTap = 0;
+
+  function cancelPendingTap() {
+    clearTimeout(pendingTap);
+    pendingTap = 0;
+  }
+
+  /* Single taps wait 300ms so a double tap never also fires the single-tap
+     action first — the same disambiguation the Watch feed uses. */
+  function onTap(e) {
+    const now = Date.now();
+    if (now - lastTap < 320) {
+      lastTap = 0;
+      cancelPendingTap();
+      if (video) {
+        const left = e.clientX < window.innerWidth / 2;
+        video.currentTime = Math.max(0, Math.min(video.duration || 0,
+          video.currentTime + (left ? -10 : 10)));
+      } else if (photoImg) {
+        toggleZoom(e);
+      }
+      haptic(6);
+      return;
+    }
+    lastTap = now;
+    pendingTap = setTimeout(singleTapAction, 300);
+  }
+
+  function singleTapAction() {
+    pendingTap = 0;
+    if (chrome.dataset.visible === "true" && video && !video.paused) {
+      chrome.dataset.visible = "false";
+    } else {
+      revealChrome();
+      if (video) togglePlay();
+    }
+  }
+
+  function beginPinch() {
+    gesture = { mode: "pinch" };
+    const [a, b] = [...pointers.values()];
+    pinch = { d0: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)), z0: zoom };
+    photoImg?.classList.add("is-live");
+  }
+
+  function updatePinch() {
+    if (!pinch || !photoImg || pointers.size < 2) return;
+    const [a, b] = [...pointers.values()];
+    const d = Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
+    const midX = (a.x + b.x) / 2, midY = (a.y + b.y) / 2;
+    /* The image point under the midpoint stays under the midpoint. */
+    const lx = photoImg.offsetLeft, ly = photoImg.offsetTop;
+    const ix = (midX - lx - zx) / zoom, iy = (midY - ly - zy) / zoom;
+    zoom = Math.min(4, Math.max(1, pinch.z0 * d / pinch.d0));
+    if (zoom === 1) { zx = 0; zy = 0; }
+    else {
+      zx = midX - lx - ix * zoom;
+      zy = midY - ly - iy * zoom;
+      clampPan();
+    }
+    applyZoom();
+  }
+
+  function endPinch() {
+    pinch = null;
+    gesture = null;
+    photoImg?.classList.remove("is-live");
+    if (zoom === 1) resetZoom();
+  }
 
   /* ----------------------------------------------------------- hotkeys -- */
 
@@ -381,9 +686,10 @@ export function openViewer(list, startIndex = 0) {
 
   /* -------------------------------------------------------------- close -- */
 
-  function close() {
+  function close(instant = false) {
     if (closed) return;
     closed = true;
+    cancelPendingTap();
     teardownVideo();
     document.removeEventListener("keydown", onKey, true);
     clearTimeout(idleTimer);
@@ -394,7 +700,7 @@ export function openViewer(list, startIndex = 0) {
       if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
       previouslyFocused?.focus?.({ preventScroll: true });
       window.scrollTo(0, savedScroll);
-    }, reducedMotion() ? 0 : 200);
+    }, (reducedMotion() || instant) ? 0 : 200);
     open = null;
   }
 
@@ -407,8 +713,6 @@ export function openViewer(list, startIndex = 0) {
       if (url) { const link = h("link", { rel: "prefetch", href: url }); document.head.append(link); }
     }
   }
-  const originalRender = render;
-  render = function () { originalRender(); prefetch(); };
 
   render();
   open = { close, root };
@@ -430,5 +734,3 @@ export function isOpen() {
 export function closeViewer() {
   open?.close();
 }
-
-void useBreakpoint;

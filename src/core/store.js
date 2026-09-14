@@ -20,6 +20,8 @@ export const KEYS = {
   library: "xLibraryState",
   prefs: "xDashboardPrefs",
   index: "xMediaIndex",      // projection cache, owned by this rebuild
+  local: "xLocalPosts",      // entries created on this device (composer)
+  draft: "xDraft",           // unsent composer draft
 };
 
 const IDB_NAME = "xbookmark";

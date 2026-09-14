@@ -1,7 +1,7 @@
 /* =============================================================================
    shell — the persistent frame: navbar, tab bar, routing.
 
-   v3 is iOS-shaped: a slim translucent navbar with the view title and two
+   v3 is iOS-shaped: a slim translucent navbar with the view title and its
    icon actions, a bottom tab bar with three destinations, views that enter on
    a spring, and an edge swipe that goes back. The frame is built once and
    never rebuilt. Views mount into #main and own their own scroll position,
@@ -19,6 +19,7 @@ import { buildTabBar } from "./components/tabbar.js";
 const openPalette = () => import("./ui/palette.js").then((m) => m.openPalette());
 const openSettings = () => import("./views/settings.js").then((m) => m.openSettings());
 const openManage = () => import("./views/manage.js").then((m) => m.openManage());
+const openComposer = () => import("./views/composer.js").then((m) => m.openComposer());
 
 const ROUTES = [
   { id: "home", label: "Home", icon: "home", title: "Home" },
@@ -53,6 +54,7 @@ export function initShell(viewModules) {
     boot: document.getElementById("boot"),
     search: document.getElementById("searchBtn"),
     menu: document.getElementById("menuBtn"),
+    compose: document.getElementById("composeBtn"),
   };
 
   tabbar = buildTabBar(els.tabbar, ROUTES, onTabSelect);
@@ -80,6 +82,9 @@ function onTabSelect(id) {
 }
 
 function wireNavbar() {
+  els.compose.append(icon("plus", 21));
+  els.compose.addEventListener("click", () => openComposer());
+
   els.search.append(icon("search", 21));
   els.search.addEventListener("click", () => openPalette());
 
@@ -138,6 +143,7 @@ async function showShortcuts() {
   const sheet = overlay({ title: "Keyboard shortcuts", size: "sm" });
   const keys = [
     ["/ or ⌘K", "Search everything"],
+    ["N", "New entry"],
     ["1 / 2 / 3", "Home, Library, Watch"],
     ["J / K", "Next and previous item"],
     ["Enter", "Open the focused item"],
@@ -376,6 +382,7 @@ function wireKeys() {
     if (typing) return;
 
     if (e.key === "/") { e.preventDefault(); openPalette(); return; }
+    if ((e.key === "n" || e.key === "N") && document.body.dataset.viewer !== "open") { openComposer(); return; }
     if (e.key === "1") navigate("home");
     if (e.key === "2") navigate("library");
     if (e.key === "3") navigate("watch");

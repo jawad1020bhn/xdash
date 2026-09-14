@@ -11,7 +11,8 @@
 
 import { h, icon, initBreakpoints } from "./ui/dom.js";
 import { loadPersisted, state, set, applyPrefs } from "./core/state.js";
-import { loadIndex } from "./core/data.js";
+import { loadIndex, mergeLocal } from "./core/data.js";
+import { localEntries } from "./core/local.js";
 import { initShell, navigate, readHash } from "./shell.js";
 import { toast } from "./ui/feedback.js";
 
@@ -52,9 +53,10 @@ async function loadArchive() {
   try {
     const started = performance.now();
     const result = await loadIndex(progress);
+    const merged = mergeLocal(result, await localEntries());
 
     set({
-      index: { posts: result.posts, media: result.media, authors: result.authors },
+      index: { posts: merged.posts, media: merged.media, authors: merged.authors },
       source: result.source,
       ready: true,
     });
