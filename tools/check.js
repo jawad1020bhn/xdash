@@ -422,6 +422,38 @@ ok("desktop grid still windowed", tilesW.length > 0 && tilesW.length < 200, `${t
 ok("crash surface absent on desktop too",
   wide.window.getComputedStyle(wd.getElementById("crash")).display === "none");
 
+/* --------------------------------------- design system (Screening Room) -- */
+
+console.log("\n── Design system ──");
+const rootCS = wide.window.getComputedStyle(wd.documentElement);
+ok("single ember accent, no gradient chrome",
+  rootCS.getPropertyValue("--brand-1").trim() === "#ff4e2e" &&
+  !/gradient/.test(rootCS.getPropertyValue("--brand")),
+  `${rootCS.getPropertyValue("--brand-1").trim()} / ${rootCS.getPropertyValue("--brand").trim()}`);
+ok("display voice is the platform serif, zero downloads",
+  /serif/.test(rootCS.getPropertyValue("--font-display")) &&
+  !wd.querySelector('link[rel="stylesheet"][href^="http"]'),
+  rootCS.getPropertyValue("--font-display").trim().slice(0, 42) || "(unset)");
+const metaEl = wd.querySelector(".lib .grid .tile__meta");
+ok("tile meta keeps the 27px packing geometry",
+  !!metaEl && wide.window.getComputedStyle(metaEl).paddingTop === "7px",
+  metaEl ? `padding-top ${wide.window.getComputedStyle(metaEl).paddingTop}` : "no tile in DOM");
+ok("tiles carry on-frame star + resume state",
+  !!wd.querySelector(".grid .tile__star") && !!wd.querySelector(".grid .tile__progress"));
+wd.querySelector('.side__item[data-route="home"]').dispatchEvent(new wide.window.Event("click", { bubbles: true }));
+await new Promise((r) => setTimeout(r, 800));
+ok("masthead kicker carries the date line",
+  /Private collection/.test(wd.querySelector(".greet .t-kicker")?.textContent || ""),
+  wd.querySelector(".greet .t-kicker")?.textContent?.slice(0, 48) || "(no kicker)");
+ok("rails are numbered editions",
+  wd.querySelectorAll(".home .block__eyebrow").length === 6,
+  `${wd.querySelectorAll(".home .block__eyebrow").length} eyebrows`);
+ok("spotlight caption sits on the frame",
+  !!wd.querySelector(".home .spotlight__frame .spotlight__foot"));
+ok("sidebar footers the archive totals",
+  /items/.test(wd.querySelector(".side__stats")?.textContent || ""),
+  wd.querySelector(".side__stats")?.textContent?.trim().slice(0, 40) || "(no stats)");
+
 /* ---------------------------------------------------------------- done -- */
 
 console.log("\n── Errors during boot ──");

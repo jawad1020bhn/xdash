@@ -100,6 +100,7 @@ function buildNav() {
 function buildSideFoot() {
   clear(els.sideFoot);
   els.sideFoot.append(
+    h("div.side__stats.t-num", { "aria-live": "polite" }),
     h("button.side__item", { type: "button", onclick: () => openSettings() },
       icon("settings", 20), h("span", { text: "Settings" })),
     h("button.side__item", { type: "button", onclick: () => openManage() },
@@ -243,6 +244,14 @@ function renderChrome() {
   }
 
   els.topTitle.textContent = ROUTES.find((r) => r.id === state.route)?.title || "Home";
+
+  const foot = els.sideFoot?.querySelector(".side__stats");
+  if (foot) {
+    foot.replaceChildren(
+      s.media ? h("span", {}, h("b", { text: fmtK(s.media) }), " items · ", h("b", { text: fmtK(s.creators) }), " creators")
+        : "No archive loaded",
+    );
+  }
 
   const wide = breakpoint() !== "compact";
   els.palette.querySelector(".topbar__search-label").textContent = "Search";

@@ -58,17 +58,19 @@ function draw() {
   const spot = spotlight();
   if (spot) root.append(spot);
 
-  for (const sec of [
-    railSection("Jump back in", "Things you saved and never opened", unseenList(), 12),
-    railSection("Most liked", "The posts that landed hardest", byLikes(), 12),
-    railSection("Long form", "Videos over three minutes", longForm(), 10),
-    railSection("Photo stories", "Posts with more than one image", multiPhoto(), 10),
-    railSection("Recently saved", "Newest first", recentList(), 12),
-  ]) {
+  const rails = [
+    ["Jump back in", "Things you saved and never opened", unseenList(), 12],
+    ["Most liked", "The posts that landed hardest", byLikes(), 12],
+    ["Long form", "Videos over three minutes", longForm(), 10],
+    ["Photo stories", "Posts with more than one image", multiPhoto(), 10],
+    ["Recently saved", "Newest first", recentList(), 12],
+  ];
+  rails.forEach(([title, subtitle, items, limit], i) => {
+    const sec = railSection(title, subtitle, items, limit, i + 1);
     if (sec) root.append(sec);
-  }
+  });
 
-  const cr = creators();
+  const cr = creators(rails.length + 1);
   if (cr) root.append(cr);
 
   root.append(footer(s));
@@ -80,15 +82,18 @@ function greeting(s) {
   const hour = new Date().getHours();
   const word = hour < 5 ? "Still up" : hour < 12 ? "Good morning"
     : hour < 18 ? "Good afternoon" : "Good evening";
+  const [first, ...rest] = word.split(" ");
+  const today = new Intl.DateTimeFormat(undefined, { weekday: "long", month: "long", day: "numeric" }).format(new Date());
   return h("header.greet",
     h("div.greet__text",
-      h("h1.t-display", { text: word + "." }),
+      h("span.t-kicker", { text: `Private collection · ${today}` }),
+      h("h1.t-display", `${first} `, h("em", { text: `${rest.join(" ")}.` })),
       h("p.greet__line",
         h("b.t-num", { text: fmtCount(s.media) }), " items from ",
         h("b.t-num", { text: fmtCount(s.creators) }), " creators",
         s.unseen ? h("span", { text: ` · ${fmtCount(s.unseen)} unopened` })
           : " · you've seen it all")),
-    h("button.greet__cta.btn", {
+    h("button.greet__cta.btn.btn--pri", {
       type: "button",
       onclick: () => {
         setQuery({ unseen: true, sort: "recent", search: "", kind: "all", author: null, starred: false });
@@ -115,13 +120,14 @@ function spotlight() {
         onclick: () => { setQuery({ unseen: true, sort: "recent" }); navigate("library"); },
       },
         h("span", { text: "See all" }), icon("arrowRight", 15))),
-    h("button.spotlight__media", {
-      type: "button",
-      "aria-label": `Open item by @${p.author_username}`,
-      onclick: () => import("../viewer.js").then(({ openViewer }) => openViewer(items, 0)),
-    },
-      mediaBox(item, p, { eager: true, sizes: "min(92vw, 1100px)", className: "spotlight__box" })),
-    h("div.spotlight__foot",
+    h("div.spotlight__frame",
+      h("button.spotlight__media", {
+        type: "button",
+        "aria-label": `Open item by @${p.author_username}`,
+        onclick: () => import("../viewer.js").then(({ openViewer }) => openViewer(items, 0)),
+      },
+        mediaBox(item, p, { eager: true, sizes: "min(92vw, 1100px)", className: "spotlight__box" })),
+      h("div.spotlight__foot",
       avatar(p.author_profile_image_url, 28, p.author_name),
       h("span.spotlight__who",
         h("b", { text: p.author_name || p.author_username }),
@@ -130,17 +136,18 @@ function spotlight() {
         ? h("span.spotlight__likes.t-num", icon("heart", 12), fmtCount(p.like_count_at_capture))
         : null,
       h("p.spotlight__why.t-small", {
-        text: p.text ? p.text.replace(/\s+/g, " ").slice(0, 160) : `Saved ${fmtAgo(p.capturedAt)}`,
-      })));
+          text: p.text ? p.text.replace(/\s+/g, " ").slice(0, 160) : `Saved ${fmtAgo(p.capturedAt)}`,
+        }))));
 }
 
 /* ----------------------------------------------------------------- rails -- */
 
-function railSection(title, subtitle, items, limit) {
+function railSection(title, subtitle, items, limit, index = 0) {
   if (!items.length) return null;
   return h("section.block",
     h("div.block__head",
       h("div.block__title",
+        index ? h("span.block__eyebrow", h("span.block__idx.t-num", { text: String(index).padStart(2, "0") })) : null,
         h("h2.t-h2", { text: title }),
         h("p.t-small", { text: subtitle })),
       h("button.block__all", { type: "button", onclick: () => openAll(title) },
@@ -163,12 +170,13 @@ function openAll(title) {
 
 /* --------------------------------------------------------------- creators -- */
 
-function creators() {
+function creators(index = 0) {
   const list = topAuthors(14).filter((a) => a.count >= 2);
   if (list.length < 3) return null;
   return h("section.block",
     h("div.block__head",
       h("div.block__title",
+        index ? h("span.block__eyebrow", h("span.block__idx.t-num", { text: String(index).padStart(2, "0") })) : null,
         h("h2.t-h2", { text: "Creators you save most" }),
         h("p.t-small", { text: `${stats().creators} in your archive` }))),
     h("div.creators", list.map((a) => h("button.creator", {
@@ -179,7 +187,7 @@ function creators() {
         navigate("library");
       },
     },
-      avatar(a.avatar, 52, a.name),
+      avatar(a.avatar, 58, a.name),
       h("span.creator__name", { text: a.name || a.username }),
       h("span.creator__count.t-tiny.t-num", { text: String(a.count) })))));
 }

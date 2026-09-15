@@ -91,9 +91,10 @@ function unlock(pin) {
       placeholder: "PIN", "aria-label": "PIN", maxlength: "12",
     });
     const card = h("form.lock__card",
-      h("span.mark", { style: { width: "44px", height: "44px", borderRadius: "14px", margin: "0 auto" } }, icon("bookmark", 22)),
-      h("h1.t-h1", { text: "Locked", style: { textAlign: "center", marginTop: "14px" } }),
-      h("p.t-small", { text: "Enter your PIN to open this archive.", style: { textAlign: "center", color: "var(--text-2)", marginTop: "6px" } }),
+      h("span.mark", { style: { width: "46px", height: "46px", borderRadius: "14px", margin: "0 auto" } }, icon("bookmark", 22)),
+      h("span.t-kicker", { text: "Private collection", style: { marginTop: "18px" } }),
+      h("h1.t-h1", { text: "Archive", style: { textAlign: "center", marginTop: "8px" } }),
+      h("p.t-small", { text: "Enter your PIN to step inside.", style: { textAlign: "center", color: "var(--text-2)", marginTop: "8px" } }),
       h("div.field", { style: { marginTop: "18px" } }, icon("lock", 17), input),
       error,
       h("button.btn.btn--pri.btn--block", { type: "submit", text: "Unlock", style: { marginTop: "14px" } }),

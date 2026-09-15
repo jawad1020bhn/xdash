@@ -151,7 +151,7 @@ export function applyPrefs() {
     if (state.prefs.themeMode === "system" && media) continue;   // let the OS decide
     if (media.includes("dark") && !dark) continue;
     if (media.includes("light") && dark) continue;
-    meta.setAttribute("content", dark ? "#08080b" : "#f7f6f3");
+    meta.setAttribute("content", dark ? "#0c0a09" : "#f5f2ec");
   }
 }
 

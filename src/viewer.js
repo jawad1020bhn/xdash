@@ -113,16 +113,11 @@ function render() {
 
   /* ---- caption + stats ---- */
   const cap = caption(p, 220);
-  root.append(h("div", {
-    style: { padding: "0 20px 8px", color: "rgb(255 255 255 / .78)", fontSize: "var(--fs-small)", display: cap ? "block" : "none", lineHeight: 1.5 },
-    text: cap,
-  }));
-  root.append(h("div", {
-    style: { padding: "0 20px 10px", display: "flex", gap: "16px", color: "rgb(255 255 255 / .55)", fontSize: "var(--fs-tiny)", fontWeight: 700 },
-  },
-    h("span", { style: { display: "inline-flex", gap: "5px", alignItems: "center" } }, icon("heart", 12), fmtCount(p.like_count_at_capture || 0)),
-    h("span", { style: { display: "inline-flex", gap: "5px", alignItems: "center" } }, icon("refresh", 12), fmtCount(p.retweet_count_at_capture || 0)),
-    item.kind !== "photo" ? h("span", { style: { display: "inline-flex", gap: "5px", alignItems: "center" } }, icon("clock", 12), fmtDuration(item.dur)) : null,
+  root.append(h("div.vw__cap", { text: cap }));
+  root.append(h("div.vw__stats",
+    h("span", icon("heart", 12), fmtCount(p.like_count_at_capture || 0)),
+    h("span", icon("refresh", 12), fmtCount(p.retweet_count_at_capture || 0)),
+    item.kind !== "photo" ? h("span", icon("clock", 12), fmtDuration(item.dur)) : null,
   ));
 
   /* ---- control bar ---- */

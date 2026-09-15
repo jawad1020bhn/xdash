@@ -8,7 +8,7 @@
    ========================================================================== */
 
 import { h, icon } from "./dom.js";
-import { state, isStarred, isViewed, toggleSelected, markStarred } from "../core/state.js";
+import { state, isStarred, isViewed, toggleSelected, markStarred, getProgress } from "../core/state.js";
 import { post } from "../core/query.js";
 import { mediaBox, avatar, fmtCount } from "./media.js";
 import { registerTileBuilder } from "./grid.js";
@@ -33,6 +33,10 @@ export function tile(item, list, { eager = false, index } = {}) {
 
   const media = mediaBox(item, p, { eager, sizes: "(max-width: 719px) 46vw, 220px" });
   media.append(veil);
+  /* On-frame state: the star (touch has no hover veil) and the resume
+     hairline for clips parked part-way through. */
+  media.append(h("span.tile__star", { "aria-hidden": "true" }, icon("starFill", 12)));
+  media.append(h("span.tile__progress", { "aria-hidden": "true" }, h("i")));
 
   const meta = h("div.tile__meta",
     avatar(p.author_profile_image_url, 20, p.author_name),
@@ -66,7 +70,11 @@ registerTileBuilder((item, list, i) => tile(item, list, { index: i, eager: i < 4
  */
 export function rail(items, { label, eager = 2 } = {}) {
   const strip = h("div.rail", { role: "group", "aria-label": label, tabindex: "0" });
-  items.forEach((item, i) => strip.append(tile(item, items, { eager: i < eager, index: i })));
+  items.forEach((item, i) => {
+    const t = tile(item, items, { eager: i < eager, index: i });
+    t.style.setProperty("--i", String(Math.min(i, 11)));   /* entrance stagger */
+    strip.append(t);
+  });
   return strip;
 }
 
@@ -88,6 +96,11 @@ function paint(el, item) {
   el.classList.toggle("is-seen", state.prefs.dimSeen && isViewed(item.id));
   el.classList.toggle("is-selected", state.ui.selected.has(item.id));
   el.setAttribute("aria-pressed", state.ui.selected.has(item.id) ? "true" : "false");
+  const bar = el.querySelector(".tile__progress i");
+  const secs = getProgress(item.id);
+  const pct = item.dur > 5 && secs > 1 ? Math.min(100, (secs / item.dur) * 100) : 0;
+  el.classList.toggle("has-progress", pct > 0);
+  if (bar) bar.style.width = `${pct}%`;
 }
 
 /** Patch star / seen / selection state in place after a store change. */

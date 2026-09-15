@@ -162,3 +162,59 @@ the format mix look broken rather than intentional:
   Settings Privacy row is informational (no set/change/remove flow); the
   `pin` pref key and storage contracts are untouched. The check harness
   enters the gate on every boot, including a wrong-code assertion.
+\n
+## 8 · v3.3 — “The Screening Room” reskin (OpenDesign skills)
+
+Owner ask: *upgrade the design UI/UX using
+[nexu-io/open-design](https://github.com/nexu-io/open-design); change the
+style completely.* Applied four skills from that repo — `frontend-design`
+(direction + craft), `taste-skill` (anti-slop discipline),
+`web-design-guidelines` (Vercel UI standards) and `emilkowalski-motion`
+(restrained animation). The system is documented in `DESIGN.md`.
+
+**Design read:** a personal media-archive product — player-first, media-loud —
+for a solo owner who opens it daily. Noir-editorial cinematic language, native
+CSS, zero downloads. Dials: variance 7 / motion 5 / density 4.
+
+What changed, surface by surface:
+
+- **One ember accent** (`#ff4e2e` / `#d9381c`) replaces the magenta→violet
+  ramp everywhere; `--brand` is a solid, chrome never gradients. Section hues
+  retuned to a warm cinematic set (ember, marquee amber, projector cyan, moss,
+  star gold, teal) and demoted to functional tints only.
+- **Serif display voice** from the platform serif stack — greeting masthead
+  (second word italic ember), lock wordmark, sheet titles, rail titles, stat
+  numerals. Grotesk UI, mono for counters/badges/kbd. No webfonts: the
+  offline-first contract survives untouched.
+- **Home** is now a masthead: date-line kicker, ruled masthead, solid ember
+  CTA → resume card → 21:10 spotlight with the caption on the scrim → five
+  numbered rails (`01`–`05`) with staggered entrances → creators (`06`) →
+  hairline stat strip (cards removed).
+- **Tiles** pin their star on the frame (touch has no hover veil) and carry
+  an ember resume hairline on parked clips. The 27px meta geometry the
+  packer depends on is unchanged and now test-locked.
+- **Library** search sticks under the top bar with frosted blur; author
+  header flattened to a hairline card with a 3px hue rule.
+- **Phone tab bar** is a floating glass dock; **desktop sidebar** gains an
+  italic serif wordmark, ember active bars and archive totals in the foot.
+- **Viewer** controls become a floating dock; caption/stats move from inline
+  styles to `.vw__cap`/`.vw__stats` with a 3-line clamp.
+- **Lock** is a cinematic curtain: ember vignette, centred masthead,
+  oversized letterspaced PIN field. Same fixed PIN (`2055`), same behaviour.
+- **Motion** retuned to 140/220/480ms, transform/opacity only; decorative
+  loops go static under reduced motion (OS or the in-app switch).
+- App icon redrawn (ember bookmark on warm black, amber dot) and all three
+  raster sizes regenerated; offline page, manifest, theme-colors and the
+  service-worker version follow the new palette.
+
+What did NOT change: the data contract, storage keys, routing, windowing
+maths, source ladders, the PIN gate, and every class-name API `tools/check.js`
+asserts on. The suite grows from 75 to 83 checks with a design-token block
+(ember solid, serif stack, no remote stylesheets, 27px meta, on-frame tile
+state, masthead kicker, numbered rails, spotlight frame, sidebar totals).
+
+Verification: `npm test` → 83/83 at 390px and 1440px with zero runtime
+errors; stylesheets parse clean (447 rules, csstree); 35 computed-style
+assertions over the reskin pass in jsdom. Real-pixel screenshots still need a
+browser outside this sandbox (Chromium CDN unreachable from here) — the owner
+flow in §5 applies unchanged.
