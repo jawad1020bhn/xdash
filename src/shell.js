@@ -5,7 +5,7 @@
    position, which is remembered per route so returning feels like returning.
    ========================================================================== */
 
-import { h, icon, clear, haptic, breakpoint } from "./ui/dom.js";
+import { h, icon, clear, haptic, breakpoint, reducedMotion } from "./ui/dom.js";
 import { state, set, setPrefs, subscribe } from "./core/state.js";
 import { stats } from "./core/query.js";
 import { openPalette } from "./ui/palette.js";
@@ -100,6 +100,7 @@ function buildNav() {
 function buildSideFoot() {
   clear(els.sideFoot);
   els.sideFoot.append(
+    h("div.side__stats.t-num", { "aria-live": "polite" }),
     h("button.side__item", { type: "button", onclick: () => openSettings() },
       icon("settings", 20), h("span", { text: "Settings" })),
     h("button.side__item", { type: "button", onclick: () => openManage() },
@@ -180,7 +181,18 @@ export async function showShortcuts() {
 
 /* -------------------------------------------------------------- routing -- */
 
-export function navigate(id, { replace = false } = {}) {
+export function navigate(id, opts = {}) {
+  /* View transitions where the browser offers them: a soft crossfade between
+     rooms. Everywhere else — and under reduced motion — a plain swap. */
+  const vt = document.startViewTransition;
+  if (vt && !reducedMotion() && !opts.instant) {
+    try { vt.call(document, () => swapRoute(id, opts)); return; }
+    catch { /* fall through to the plain swap */ }
+  }
+  swapRoute(id, opts);
+}
+
+function swapRoute(id, { replace = false } = {}) {
   if (!ROUTE_IDS.includes(id)) id = "home";
   if (id === state.route && current) { renderChrome(); return; }
 
@@ -202,6 +214,7 @@ export function navigate(id, { replace = false } = {}) {
 
   document.title = `${current.title} · Archive`;
   document.body.dataset.route = id;
+  els.tabbar.dataset.hidden = "false";
   renderChrome();
 
   const y = scrollMemory.get(id) || 0;
@@ -244,6 +257,14 @@ function renderChrome() {
 
   els.topTitle.textContent = ROUTES.find((r) => r.id === state.route)?.title || "Home";
 
+  const foot = els.sideFoot?.querySelector(".side__stats");
+  if (foot) {
+    foot.replaceChildren(
+      s.media ? h("span", {}, h("b", { text: fmtK(s.media) }), " items · ", h("b", { text: fmtK(s.creators) }), " creators")
+        : "No archive loaded",
+    );
+  }
+
   const wide = breakpoint() !== "compact";
   els.palette.querySelector(".topbar__search-label").textContent = "Search";
   const kbd = els.palette.querySelector(".kbd");
@@ -267,6 +288,10 @@ function wireScrollChrome() {
       frame = 0;
       const y = window.scrollY;
       els.topbar.dataset.scrolled = y > 8 ? "true" : "false";
+      /* The tab bar ducks while the page moves down and returns on the way
+         up — screen space where it matters, navigation a gesture away. */
+      if (y > lastScroll + 8 && y > 240) els.tabbar.dataset.hidden = "true";
+      else if (y < lastScroll - 8 || y <= 240) els.tabbar.dataset.hidden = "false";
       lastScroll = y;
     });
   }, { passive: true });

@@ -8,7 +8,7 @@
    ========================================================================== */
 
 import { h, icon, initBreakpoints } from "./ui/dom.js";
-import { loadPersisted, state, set, applyPrefs } from "./core/state.js";
+import { loadPersisted, state, set, setQuery, applyPrefs } from "./core/state.js";
 import { loadIndex } from "./core/data.js";
 import { initShell, navigate, readHash } from "./shell.js";
 import { toast } from "./ui/feedback.js";
@@ -41,6 +41,13 @@ async function boot() {
 
     navigate(readHash() || state.prefs.landing || "home", { replace: true });
 
+    /* Shared searches arrive as ?q=: land in the Library with it applied. */
+    const shared = new URLSearchParams(location.search).get("q")?.trim();
+    if (shared) {
+      setQuery({ search: shared });
+      if (state.route !== "library") navigate("library", { replace: true });
+    }
+
     loadArchive();
     registerServiceWorker();
     wireOnlineState();
@@ -52,7 +59,7 @@ async function boot() {
 async function loadArchive() {
   try {
     const started = performance.now();
-    const result = await loadIndex((msg) => setLoadMessage(msg));
+    const result = await loadIndex((msg, frac) => setLoadMessage(msg, frac));
 
     set({
       index: { posts: result.posts, media: result.media, authors: result.authors },
@@ -63,11 +70,13 @@ async function loadArchive() {
 
     const ms = Math.round(performance.now() - started);
     if (result.source === "none") {
-      toast("No archive found. Import one to get started.", {
-        action: "Import",
-        onAction: () => import("./views/manage.js").then((m) => m.openManage()),
-        duration: 9000,
-      });
+      /* A first run with nothing loaded: open the door, not a toast. */
+      try {
+        const { openManage } = await import("./views/manage.js");
+        openManage(true);
+      } catch {
+        toast("No archive found. Import one to get started.", { duration: 9000 });
+      }
     } else if (!result.fromCache) {
       console.info(`[archive] indexed ${result.media.length} items in ${ms}ms from ${result.source}`);
     }
@@ -91,9 +100,10 @@ function unlock(pin) {
       placeholder: "PIN", "aria-label": "PIN", maxlength: "12",
     });
     const card = h("form.lock__card",
-      h("span.mark", { style: { width: "44px", height: "44px", borderRadius: "14px", margin: "0 auto" } }, icon("bookmark", 22)),
-      h("h1.t-h1", { text: "Locked", style: { textAlign: "center", marginTop: "14px" } }),
-      h("p.t-small", { text: "Enter your PIN to open this archive.", style: { textAlign: "center", color: "var(--text-2)", marginTop: "6px" } }),
+      h("span.mark", { style: { width: "46px", height: "46px", borderRadius: "14px", margin: "0 auto" } }, icon("bookmark", 22)),
+      h("span.t-kicker", { text: "Private collection", style: { marginTop: "18px" } }),
+      h("h1.t-h1", { text: "Archive", style: { textAlign: "center", marginTop: "8px" } }),
+      h("p.t-small", { text: "Enter your PIN to step inside.", style: { textAlign: "center", color: "var(--text-2)", marginTop: "8px" } }),
       h("div.field", { style: { marginTop: "18px" } }, icon("lock", 17), input),
       error,
       h("button.btn.btn--pri.btn--block", { type: "submit", text: "Unlock", style: { marginTop: "14px" } }),
@@ -123,14 +133,17 @@ function unlock(pin) {
 
 /* -------------------------------------------------------------- messaging -- */
 
-let msgEl = null;
-function setLoadMessage(text) {
+let msgEl = null, msgTxt = null, msgBar = null;
+function setLoadMessage(text, frac) {
   if (!msgEl) {
-    msgEl = h("div.loadmsg", { role: "status", "aria-live": "polite" }, h("span.spinner"), h("span", { text }));
+    msgTxt = h("span", { text: text || "Loading…" });
+    msgBar = h("span.loadmsg__bar", { "aria-hidden": "true" });
+    msgEl = h("div.loadmsg", { role: "status", "aria-live": "polite" }, h("span.spinner"), msgTxt, msgBar);
     document.body.append(msgEl);
-  } else {
-    msgEl.lastElementChild.textContent = text;
+  } else if (text) {
+    msgTxt.textContent = text;
   }
+  if (typeof frac === "number") msgBar.style.setProperty("--p", String(Math.max(0.04, Math.min(1, frac))));
   requestAnimationFrame(() => msgEl?.classList.add("is-in"));
 }
 

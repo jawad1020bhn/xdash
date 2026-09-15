@@ -33,6 +33,7 @@ export const PREF_DEFAULTS = {
   markViewedOnOpen: true,
   landing: "home",
   views: [],                  // saved library views: { name, query }
+  recentSearches: [],       // palette history, newest first (max 6)
 
   /* Access — user-set, replacing the hard-coded password v1 shipped */
   pin: null,
@@ -151,7 +152,7 @@ export function applyPrefs() {
     if (state.prefs.themeMode === "system" && media) continue;   // let the OS decide
     if (media.includes("dark") && !dark) continue;
     if (media.includes("light") && dark) continue;
-    meta.setAttribute("content", dark ? "#08080b" : "#f7f6f3");
+    meta.setAttribute("content", dark ? "#0c0a09" : "#f5f2ec");
   }
 }
 

@@ -171,11 +171,29 @@ async function fingerprint(url) {
   } catch { return null; }
 }
 
-async function tryJson(url) {
+async function tryJson(url, onBytes) {
   try {
     const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) return null;
-    return await res.json();
+    /* Stream the body so the boot message can show real byte progress on a
+       17 MB file instead of a dead spinner. The decode is byte-identical to
+       res.json(): UTF-8, then one JSON.parse. */
+    if (!onBytes || !res.body?.getReader) return await res.json();
+    const total = Number(res.headers.get("content-length")) || 0;
+    const reader = res.body.getReader();
+    const chunks = [];
+    let loaded = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      loaded += value.length;
+      onBytes(total ? loaded / total : Math.min(0.9, loaded / (4 * 1024 * 1024)));
+    }
+    const buf = new Uint8Array(loaded);
+    let off = 0;
+    for (const chunk of chunks) { buf.set(chunk, off); off += chunk.length; }
+    return JSON.parse(new TextDecoder().decode(buf));
   } catch { return null; }
 }
 
@@ -188,6 +206,9 @@ async function tryJson(url) {
  * structured data), not the 17.7 MB export, and it is keyed on the file's HTTP
  * fingerprint. An unchanged file therefore costs one HEAD request and zero
  * JSON parsing on reload.
+ *
+ * onProgress(message, fraction): message is a status line (null on
+ * progress-only ticks), fraction the 0..1 shape of the whole load.
  */
 export async function loadIndex(onProgress) {
   const cached = (await getMany([KEYS.index]))[KEYS.index];
@@ -202,12 +223,12 @@ export async function loadIndex(onProgress) {
       return { ...index, source: url, fromCache: true };
     }
 
-    onProgress?.(`Reading ${url.split("/").pop()}…`);
-    const json = await tryJson(url);
+    onProgress?.(`Reading ${url.split("/").pop()}…`, 0.04);
+    const json = await tryJson(url, (f) => onProgress?.(null, 0.04 + f * 0.8));
     const bookmarks = extractBookmarks(json);
     if (!bookmarks.length) continue;
 
-    onProgress?.("Indexing…");
+    onProgress?.("Indexing…", 0.9);
     const index = project(bookmarks);
     // Cache the compact projection, not the export.
     await setMany({ [KEYS.index]: {
@@ -218,6 +239,7 @@ export async function loadIndex(onProgress) {
       authors: index.authors,
     } }).catch(() => { /* a full cache is not fatal */ });
 
+    onProgress?.(null, 1);
     return { ...index, source: url, fromCache: false };
   }
 

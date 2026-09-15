@@ -29,7 +29,8 @@ const META_H = 27;    /* author line: 7px top padding + a 20px avatar */
  */
 export function createGrid(host, getList, { emptyBuilder, ariaLabel = "Archive items" } = {}) {
   let grid = null;
-  let cols = 1, colW = 0, gap = 10, gridTop = 0;
+  let cols = 1, colW = 0, gap = 10, gridTop = 0, listLen = 0;
+  let activeId = null;   /* roving tabindex: the one tabbable tile */
   let positions = [];          /* { x, y, h } per list index          */
   let rangeStart = -1, rangeEnd = -1, frame = 0;
   const nodes = new Map();
@@ -37,6 +38,11 @@ export function createGrid(host, getList, { emptyBuilder, ariaLabel = "Archive i
 
   grid = h("div.grid", { role: "list", "aria-label": ariaLabel });
   host.append(grid);
+  grid.addEventListener("keydown", onKey);
+  grid.addEventListener("focusin", (e) => {
+    const t = e.target.closest?.(".tile");
+    if (t && t.dataset.id !== activeId) { activeId = t.dataset.id; syncTabindex(); }
+  });
 
   unsubs.push(onBreakpoint(() => { measure(); paint(true); }));
   addEventListener("scroll", onScroll, { passive: true });
@@ -55,6 +61,7 @@ export function createGrid(host, getList, { emptyBuilder, ariaLabel = "Archive i
     const fallback = (aspect[0] || 4) / (aspect[1] || 5);
 
     const list = getList();
+    listLen = list.length;
     const w = grid.clientWidth || host.clientWidth || 360;
     cols = Math.max(1, Math.floor((w + gap) / (min + gap)));
     colW = (w - gap * (cols - 1)) / cols;
@@ -138,8 +145,18 @@ export function createGrid(host, getList, { emptyBuilder, ariaLabel = "Archive i
 
   function tileFor(item, list, i) {
     /* Imported lazily-ish (static import would cycle): card.js owns tiles. */
-    const el = buildTile(item, list, i);
+    let el;
+    try {
+      el = buildTile(item, list, i);
+    } catch (err) {
+      console.error("[grid] tile failed to build", err);
+      el = h("button.tile", {
+        type: "button", dataset: { id: item.id },
+        "aria-label": "An item that could not be drawn",
+      }, h("div.tile__media", h("span.vid-fallback", { text: "Couldn't draw this tile" })));
+    }
     el.setAttribute("role", "listitem");
+    el.tabIndex = item.id === activeId ? 0 : -1;
     return el;
   }
 
@@ -149,11 +166,57 @@ export function createGrid(host, getList, { emptyBuilder, ariaLabel = "Archive i
     el.style.left = `${p.x}px`;
     el.style.top = `${p.y}px`;
     el.style.width = `${colW}px`;
+    el.setAttribute("aria-posinset", String(i + 1));
+    el.setAttribute("aria-setsize", String(listLen));
+  }
+
+  /* Arrow-key travel across the windowed grid, with a roving tabindex so
+     fifty tiles cost one Tab stop. Targets outside the window scroll into
+     it, then take focus once painted. */
+  function onKey(e) {
+    const t = e.target.closest?.(".tile");
+    if (!t) return;
+    const list = getList();
+    const cur = list.findIndex((m) => m.id === t.dataset.id);
+    if (cur < 0) return;
+    let next = -1;
+    if (e.key === "ArrowRight") next = cur + 1;
+    else if (e.key === "ArrowLeft") next = cur - 1;
+    else if (e.key === "ArrowDown") next = cur + cols;
+    else if (e.key === "ArrowUp") next = cur - cols;
+    else if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = list.length - 1;
+    else return;
+    e.preventDefault();
+    focusIndex(Math.max(0, Math.min(list.length - 1, next)));
+  }
+
+  function focusIndex(i) {
+    const list = getList();
+    const item = list[i];
+    if (!item) return;
+    activeId = item.id;
+    const el = nodes.get(item.id);
+    if (el) {
+      syncTabindex();
+      el.focus({ preventScroll: true });
+      el.scrollIntoView({ block: "nearest" });
+      return;
+    }
+    const p = positions[i];
+    if (p) scrollTo({ top: Math.max(0, gridTop + p.y - window.innerHeight / 2), behavior: "instant" });
+    setTimeout(() => { syncTabindex(); nodes.get(item.id)?.focus({ preventScroll: true }); }, 140);
+  }
+
+  function syncTabindex() {
+    for (const [id, el] of nodes) el.tabIndex = id === activeId ? 0 : -1;
   }
 
   function refresh(reset = false) {
     measure();
+    if (!getList().some((m) => m.id === activeId)) activeId = getList()[0]?.id ?? null;
     paint(reset);
+    syncTabindex();
   }
 
   function destroy() {

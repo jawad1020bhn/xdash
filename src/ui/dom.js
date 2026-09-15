@@ -118,6 +118,46 @@ export function countUp(el, target, { duration = 700, format = (n) => String(n) 
   requestAnimationFrame(tick);
 }
 
+/* A radial tick-burst from a host element (star confirmations). The host
+   must be positioned; dots clean themselves up after the flight. */
+export function burst(host, { n = 8 } = {}) {
+  if (reducedMotion() || !host?.append) return;
+  const layer = h("span.burst", { "aria-hidden": "true" });
+  for (let i = 0; i < n; i++) {
+    const dot = h("i");
+    const a = (i / n) * Math.PI * 2;
+    dot.style.setProperty("--dx", `${Math.cos(a) * 30}px`);
+    dot.style.setProperty("--dy", `${Math.sin(a) * 30}px`);
+    layer.append(dot);
+  }
+  host.append(layer);
+  setTimeout(() => layer.remove(), 700);
+}
+
+/**
+ * Scroll reveals for editorial blocks: `.reveal` fades up once, the first
+ * time it enters. Returns a disconnect for unmount. Reduced motion (or no
+ * observer) paints everything immediately — content never hides.
+ */
+export function reveal(scope = document) {
+  const els = [...scope.querySelectorAll(".reveal:not([data-rv])")];
+  if (!els.length) return () => {};
+  document.documentElement.classList.add("has-rv");
+  if (reducedMotion() || !("IntersectionObserver" in window)) {
+    els.forEach((el) => el.classList.add("is-in"));
+    return () => {};
+  }
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (!e.isIntersecting) continue;
+      e.target.classList.add("is-in");
+      io.unobserve(e.target);
+    }
+  }, { rootMargin: "0px 0px -6% 0px", threshold: 0.08 });
+  els.forEach((el) => { el.dataset.rv = "1"; io.observe(el); });
+  return () => io.disconnect();
+}
+
 /** Runs fn on the next idle moment, batched — used by the windowed grid. */
 export function onIdle(fn, timeout = 120) {
   if ("requestIdleCallback" in window) requestIdleCallback(fn, { timeout });

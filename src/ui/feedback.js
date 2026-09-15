@@ -23,6 +23,7 @@ export function overlay({ title = "", size = "", onClose } = {}) {
   );
   const sheet = h("div.sheet" + (size ? ` sheet--${size}` : ""), { role: "dialog", "aria-modal": "true", "aria-label": title || "Dialog" }, head, content);
   const root = h("div.overlay", sheet);
+  const prevFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 
   let released = null;
   const api = {
@@ -38,6 +39,7 @@ export function overlay({ title = "", size = "", onClose } = {}) {
         if (!overlayCount) document.body.style.overflow = "";
         released?.();
         releaseEsc?.();
+        try { prevFocus?.focus?.({ preventScroll: true }); } catch { /* opener gone */ }
         onClose?.(result);
       }, 180);
     },
@@ -129,4 +131,34 @@ export function promptDialog({ title, label, placeholder = "", initial = "" } = 
     sheet.content.append(form);
     setTimeout(() => input.focus(), 60);
   });
+}
+
+/* ---------------------------------------------------------- loading ------- */
+
+/**
+ * First-paint skeletons, shaped like the surface they stand in for. Used
+ * while the archive is still indexing (`!state.ready`) so no view ever
+ * flashes its empty state on a slow first load. Class names deliberately
+ * avoid `.grid`/`.rail`/`.chart`: skeletons must never satisfy content
+ * assertions.
+ */
+export function loadingState(host, kind = "home") {
+  clear(host);
+  const tile = () => h("div.sk.sk--tile");
+  if (kind === "library") {
+    host.append(h("div.skel-grid", { "aria-label": "Loading your archive" },
+      Array.from({ length: 12 }, tile)));
+    return;
+  }
+  if (kind === "watch") {
+    host.append(h("div.skel-watch", h("span.spinner", { "aria-label": "Loading your feed" })));
+    return;
+  }
+  host.append(h("div.skel-home",
+    h("div.boot__mast", h("div.sk.sk--kicker"), h("div.sk.sk--mast"), h("div.sk.sk--sub")),
+    h("div.boot__rails",
+      h("div.boot__rail", h("div.sk.sk--label"),
+        h("div.boot__strip", Array.from({ length: 6 }, tile))),
+      h("div.boot__rail", h("div.sk.sk--label"),
+        h("div.boot__strip", Array.from({ length: 6 }, tile))))));
 }

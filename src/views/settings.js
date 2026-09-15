@@ -146,8 +146,8 @@ function storageLine(c) {
   Promise.all([backendName(), estimateBytes()]).then(([backend, bytes]) => {
     const s = stats();
     line.querySelector("small").textContent =
-      `${backend} · ${fmtBytes(bytes)} on this device · ${s.media} items indexed · v3.0`;
+      `${backend} · ${fmtBytes(bytes)} on this device · ${s.media} items indexed · v3.3`;
   }).catch(() => {
-    line.querySelector("small").textContent = "v3.0";
+    line.querySelector("small").textContent = "v3.3";
   });
 }

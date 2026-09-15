@@ -1,167 +1,192 @@
 /* =============================================================================
-   TOKENS v3 — the only place a value is decided.
+   TOKENS v3.3 — “The Screening Room.” The only place a value is decided.
 
-   Direction: BOLD MEDIA-FIRST. The archive is 1,205 photos and videos, so the
-   canvas stays near-black (or paper-white) and lets saturated colour exist in
-   exactly two places: the media itself, and the colour-blocking that labels a
-   section. Chrome is quiet; content is loud.
+   Direction: NOIR EDITORIAL. The archive is a private collection of 1,200+
+   photos and videos, so the product dresses like the room you watch them in:
+   warm near-black (or warm paper), a single ember accent, hairline rules
+   instead of neon, and a serif display voice for the masthead moments. Media
+   stays loud; chrome stays quiet.
 
-   Every hue in the product comes from HUES below. A section picks one with
-   `--hue`, and backgrounds, chips and chart strokes derive from it — so the
-   dashboard reads as colour-blocked, not rainbow-random.
+   Rules this file enforces:
+     · ONE accent (ember). Section hues exist only as functional tints for
+       chips, rows and meters — never as decoration.
+     · NO gradients on chrome. The one scrim that sits over media is black,
+       because legibility over photography is a job, not a style.
+     · ZERO downloads. The serif display face is the platform's own serif
+       stack, so the offline-first contract survives the reskin untouched.
+     · SHAPE RULE (one scale, documented): screens 24 · media 14 · controls
+       pill · people and round actions circular. Nothing else ships a radius.
    ============================================================================= */
 
 :root {
-  /* ---- Brand ------------------------------------------------------------
-     Two-stop brand ramp for the mark, the active-tab indicator and charts. */
-  --brand-1: #ff3d81;        /* hot magenta  */
-  --brand-2: #7c5cff;        /* voltage violet */
-  --brand: linear-gradient(135deg, var(--brand-1), var(--brand-2));
+  /* ---- Brand ---------------------------------------------------------------
+     A single ember. --brand-2 (marquee amber) exists only so two-series
+     charts can stay distinguishable without leaving the warm family. */
+  --brand-1: #ff4e2e;        /* ember        */
+  --brand-2: #f2a33c;        /* marquee amber */
+  --brand: var(--brand-1);    /* solid. Chrome never gradients. */
+  --on-brand: #ffffff;
 
-  /* ---- Section hues ------------------------------------------------------
-     Cycled by rails and KPI cards. Saturation/lightness are applied by the
-     theme blocks below so light mode stays legible. */
-  --hue-a: 335;   /* magenta  */
-  --hue-b: 255;   /* violet   */
-  --hue-c: 190;   /* cyan     */
-  --hue-d: 80;    /* lime     */
-  --hue-e: 28;    /* amber    */
-  --hue-f: 150;   /* mint     */
+  /* ---- Section hues ----------------------------------------------------------
+     Functional tints only: chips, row icons, meters, mix rows. A section sets
+     --hue and inherits the tint/chip/line family from .hue below. */
+  --hue-a: 8;     /* signal ember — primary, spotlight, lock  */
+  --hue-b: 38;    /* marquee amber — commands, library default */
+  --hue-c: 205;   /* projector cyan — info, links, media       */
+  --hue-d: 95;    /* moss — fresh, unseen, go                  */
+  --hue-e: 45;    /* gold — stars                              */
+  --hue-f: 165;   /* teal — settings, misc                     */
 
-  /* ---- Semantic ---------------------------------------------------------- */
-  --ok: #34d399;
-  --warn: #fbbf24;
+  /* ---- Semantic ------------------------------------------------------------ */
+  --ok: #3ecf8e;
+  --warn: #f5b83d;
   --danger: #ff5470;
 
-  /* ---- Shape ------------------------------------------------------------- */
-  --r-xs: 8px;
-  --r-sm: 12px;
-  --r-md: 16px;
-  --r-lg: 22px;
-  --r-xl: 28px;
+  /* ---- Shape (the documented scale) ---------------------------------------- */
+  --r-xs: 8px;    /* kbd, thumbs        */
+  --r-sm: 10px;   /* row icons, meters  */
+  --r-md: 14px;   /* media tiles        */
+  --r-lg: 18px;   /* spotlight, cards   */
+  --r-xl: 24px;   /* sheets, palette    */
   --r-pill: 999px;
 
-  /* ---- Touch ------------------------------------------------------------- */
+  /* ---- Touch --------------------------------------------------------------- */
   --tap: 44px;
   --tap-lg: 52px;
 
-  /* ---- Space (4px base) -------------------------------------------------- */
+  /* ---- Space (4px base) ---------------------------------------------------- */
   --s-1: 4px;  --s-2: 8px;  --s-3: 12px; --s-4: 16px; --s-5: 20px;
   --s-6: 24px; --s-7: 28px; --s-8: 32px; --s-10: 40px; --s-12: 48px; --s-16: 64px;
 
-  /* ---- Motion ------------------------------------------------------------ */
-  --t-fast: 110ms;
-  --t-ui: 200ms;
-  --t-slow: 420ms;
+  /* ---- Motion (emilkowalski restraint: quick, useful, transform/opacity) --- */
+  --t-fast: 140ms;
+  --t-ui: 220ms;
+  --t-slow: 480ms;
   --ease: cubic-bezier(.2, 0, 0, 1);
   --ease-out: cubic-bezier(.16, 1, .3, 1);
   --spring: cubic-bezier(.34, 1.4, .5, 1);
 
-  /* ---- Shell metrics ----------------------------------------------------- */
-  --topbar-h: 58px;
-  --tabbar-h: 62px;
-  --side-w: 236px;
+  /* ---- Shell metrics ------------------------------------------------------- */
+  --topbar-h: 60px;
+  --tabbar-h: 64px;
+  --side-w: 248px;
   --side-w-mini: 76px;
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* ---- Type ---------------------------------------------------------------
-     Nothing is downloaded: the platform's own UI face at black weights carries
-     the display voice. Numerals are tabular everywhere stats live. */
+  /* ---- Type ------------------------------------------------------------------
+     Display is the platform serif — editorial voice, zero downloads. UI is the
+     platform grotesk. Mono carries numerals-adjacent jobs (kbd, counters). */
+  --font-display: ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino,
+          "Book Antiqua", Georgia, "Times New Roman", serif;
   --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI Variable Display",
           "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 
-  --fs-display: clamp(30px, 6.2vw, 58px);
-  --fs-h1: clamp(22px, 3.4vw, 30px);
-  --fs-h2: clamp(17px, 2.2vw, 21px);
-  --fs-h3: 15.5px;
+  --fs-display: clamp(36px, 7.4vw, 68px);
+  --fs-h1: clamp(24px, 3.6vw, 32px);
+  --fs-h2: clamp(19px, 2.4vw, 23px);
+  --fs-h3: 16px;
   --fs-body: 14.5px;
   --fs-small: 12.5px;
   --fs-tiny: 11px;
 
-  --trk-tight: -0.035em;
-  --trk-label: 0.09em;
+  --trk-display: -0.015em;
+  --trk-tight: -0.028em;
+  --trk-label: 0.12em;
 
   color-scheme: dark;
 }
 
 /* ==========================================================================
-   DARK — default. Layered surfaces give real elevation; a faint top-light on
-   every raised surface is what stops flat-black from looking like a wireframe.
+   DARK — the screening room. Warm near-black, warm paper-white text, one
+   ember accent. Elevation is one hairline + one soft warm shadow.
    ========================================================================== */
 :root,
 :root[data-theme="dark"] {
-  --bg: #08080b;
-  --bg-2: #0c0c11;
-  --surface: #12121a;
-  --surface-2: #191922;
-  --surface-3: #22222e;
-  --chrome: color-mix(in oklab, #0b0b10 78%, transparent);
+  --bg: #0c0a09;
+  --bg-2: #100e0d;
+  --surface: #161311;
+  --surface-2: #1e1a17;
+  --surface-3: #2a241f;
+  --chrome: color-mix(in oklab, #0d0b0a 80%, transparent);
 
-  --text: #f5f4fa;
-  --text-2: #a6a4b8;
-  --text-3: #6f6d82;
+  --text: #f4f1ea;
+  --text-2: #aaa49a;
+  --text-3: #6f6a61;
 
-  --line: color-mix(in oklab, #ffffff 9%, transparent);
-  --line-2: color-mix(in oklab, #ffffff 16%, transparent);
-  --hi: color-mix(in oklab, #ffffff 7%, transparent);   /* top-light on raised */
+  --line: color-mix(in oklab, #fff8ee 8.5%, transparent);
+  --line-2: color-mix(in oklab, #fff8ee 16%, transparent);
+  --hi: color-mix(in oklab, #fff8ee 7%, transparent);   /* top-light on raised */
 
-  --scrim: color-mix(in oklab, #000 74%, transparent);
-  --media-bg: #101016;
+  --scrim: color-mix(in oklab, #000 72%, transparent);
+  --media-bg: #141110;
 
   /* colour-blocking: hue → usable fills, per theme */
-  --hue-s: 88%;
-  --hue-l: 62%;
-  --blk-tint: 0.16;    /* section wash alpha   */
-  --blk-chip: 0.22;    /* chip / pill fill     */
+  --hue-s: 82%;
+  --hue-l: 64%;
+  --blk-tint: 0.15;
+  --blk-chip: 0.20;
   --blk-line: 0.42;
 
-  --sh-1: 0 1px 2px rgb(0 0 0 / .55);
-  --sh-2: 0 10px 30px -10px rgb(0 0 0 / .75), 0 2px 8px -2px rgb(0 0 0 / .55);
-  --sh-3: 0 30px 80px -20px rgb(0 0 0 / .85), 0 10px 30px -14px rgb(0 0 0 / .65);
+  --sh-1: 0 1px 2px rgb(0 0 0 / .5);
+  --sh-2: 0 12px 32px -12px rgb(0 0 0 / .7), 0 2px 8px -2px rgb(0 0 0 / .5);
+  --sh-3: 0 32px 80px -20px rgb(0 0 0 / .85), 0 10px 30px -14px rgb(0 0 0 / .6);
+  --sh-brand: 0 8px 24px -8px rgb(255 78 46 / .55);
 
-  --sk: #17171f;
-  --sk-hi: #23232d;
+  --grain-blend: overlay;
+  --grain-alpha: .09;
+
+  --sk: #191512;
+  --sk-hi: #242019;
 }
 
 /* ==========================================================================
-   LIGHT — warm paper. Hues darken and desaturate so colour-blocking reads as
-   print ink, not neon.
+   LIGHT — warm paper. Ember deepens so it holds contrast on white; hues go
+   to print ink.
    ========================================================================== */
 :root[data-theme="light"] {
-  --bg: #f7f6f3;
-  --bg-2: #fbfaf8;
-  --surface: #ffffff;
-  --surface-2: #f1f0ec;
-  --surface-3: #e7e6e0;
-  --chrome: color-mix(in oklab, #fbfaf8 82%, transparent);
+  --brand-1: #d9381c;
+  --brand-2: #b97a1a;
+  --brand: var(--brand-1);
+  --on-brand: #ffffff;
 
-  --text: #131218;
-  --text-2: #565463;
-  --text-3: #7b7987;
+  --bg: #f5f2ec;
+  --bg-2: #faf8f3;
+  --surface: #fffdf8;
+  --surface-2: #ece7da;
+  --surface-3: #ded6c4;
+  --chrome: color-mix(in oklab, #faf8f3 82%, transparent);
 
-  --line: color-mix(in oklab, #14121c 10%, transparent);
-  --line-2: color-mix(in oklab, #14121c 18%, transparent);
-  --hi: color-mix(in oklab, #ffffff 65%, transparent);
+  --text: #171310;
+  --text-2: #57504a;
+  --text-3: #857c6f;
 
-  --scrim: color-mix(in oklab, #16141f 40%, transparent);
-  --media-bg: #e9e8e3;
+  --line: color-mix(in oklab, #1c1410 10%, transparent);
+  --line-2: color-mix(in oklab, #1c1410 19%, transparent);
+  --hi: color-mix(in oklab, #ffffff 70%, transparent);
 
-  --hue-s: 72%;
-  --hue-l: 42%;
+  --scrim: color-mix(in oklab, #1c1410 42%, transparent);
+  --media-bg: #e7e1d3;
+
+  --hue-s: 68%;
+  --hue-l: 40%;
   --blk-tint: 0.10;
   --blk-chip: 0.14;
   --blk-line: 0.40;
 
-  --sh-1: 0 1px 2px rgb(20 16 40 / .08);
-  --sh-2: 0 10px 28px -12px rgb(20 16 40 / .18), 0 2px 6px -3px rgb(20 16 40 / .10);
-  --sh-3: 0 28px 64px -20px rgb(20 16 40 / .28), 0 8px 20px -12px rgb(20 16 40 / .16);
+  --sh-1: 0 1px 2px rgb(28 20 16 / .08);
+  --sh-2: 0 12px 30px -12px rgb(28 20 16 / .20), 0 2px 6px -3px rgb(28 20 16 / .10);
+  --sh-3: 0 30px 64px -20px rgb(28 20 16 / .30), 0 8px 20px -12px rgb(28 20 16 / .16);
+  --sh-brand: 0 8px 22px -8px rgb(217 56 28 / .5);
 
-  --sk: #e8e7e2;
-  --sk-hi: #f3f2ee;
+  --grain-blend: multiply;
+  --grain-alpha: .07;
+
+  --sk: #e6e0d2;
+  --sk-hi: #f1ece0;
 
   color-scheme: light;
 }
@@ -180,16 +205,34 @@
    OS-level contrast and motion.
    ========================================================================== */
 @media (prefers-contrast: more) {
-  :root[data-theme="dark"] { --text: #fff; --text-2: #cfcdde; --line: #45435a; --line-2: #5b5975; }
-  :root[data-theme="light"] { --text: #000; --text-2: #2b2a33; --line: #b6b4c0; --line-2: #94929f; }
+  :root[data-theme="dark"] { --text: #fff; --text-2: #d8d4cc; --line: #4a453f; --line-2: #615b52; }
+  :root[data-theme="light"] { --text: #000; --text-2: #2b2723; --line: #b3aa99; --line-2: #948b7a; }
 }
 @media (prefers-reduced-motion: reduce) {
   :root { --t-fast: 1ms; --t-ui: 1ms; --t-slow: 1ms; --spring: var(--ease); }
 }
 :root[data-motion="reduced"] { --t-fast: 1ms; --t-ui: 1ms; --t-slow: 1ms; --spring: var(--ease); }
 
+/* Decorative keyframe loops go static under reduced motion. Durations are
+   already zeroed above; this kills the loops' visual noise outright. */
+@media (prefers-reduced-motion: reduce) {
+  .sk::after, .spinner, .view-in, .rail .tile, .selbar,
+  .burst i, .watch__flash { animation: none !important; }
+  .has-rv .reveal { opacity: 1 !important; translate: none !important; transition: none !important; }
+}
+:root[data-motion="reduced"] .sk::after,
+:root[data-motion="reduced"] .spinner,
+:root[data-motion="reduced"] .view-in,
+:root[data-motion="reduced"] .rail .tile,
+:root[data-motion="reduced"] .selbar,
+:root[data-motion="reduced"] .burst i,
+:root[data-motion="reduced"] .watch__flash { animation: none !important; }
+:root[data-motion="reduced"].has-rv .reveal,
+:root[data-motion="reduced"] .has-rv .reveal { opacity: 1 !important; translate: none !important; transition: none !important; }
+
 /* ==========================================================================
    Density + tile aspect — one attribute moves the whole grid.
+   Values are load-bearing: grid.js reads --tile-min/--gap/--tile-aspect.
    ========================================================================== */
 :root, :root[data-density="cozy"]    { --tile-min: 172px; --gap: 10px; --tile-r: var(--r-md); }
 :root[data-density="compact"]        { --tile-min: 132px; --gap: 5px;  --tile-r: var(--r-sm); }

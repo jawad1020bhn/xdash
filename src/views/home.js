@@ -7,16 +7,18 @@
    door into the full library. Everything here is a tile or a button.
    ========================================================================== */
 
-import { h, icon, clear } from "../ui/dom.js";
+import { h, icon, clear, countUp, reveal } from "../ui/dom.js";
 import { state, subscribe, setQuery } from "../core/state.js";
 import { post as postOf, stats, topAuthors } from "../core/query.js";
-import { mediaBox, avatar, thumbImg, fmtCount, fmtDuration, fmtAgo, fmtHours } from "../ui/media.js";
+import { mediaBox, avatar, thumbImg, fmtCount, fmtDuration, fmtAgo, fmtHours, videoEl } from "../ui/media.js";
 import { rail } from "../ui/card.js";
-import { emptyState } from "../ui/feedback.js";
+import { emptyState, loadingState } from "../ui/feedback.js";
 import { navigate } from "../shell.js";
 
 let unsub = [];
 let root = null;
+let revealOff = null;
+let countedUp = false;
 
 export function mount(host) {
   root = h("section.home.view-in");
@@ -28,6 +30,8 @@ export function mount(host) {
 export function unmount() {
   unsub.forEach((fn) => fn());
   unsub = [];
+  revealOff?.();
+  revealOff = null;
   root = null;
   unseenMemo = null;
   unseenKey = "";
@@ -38,6 +42,13 @@ export function unmount() {
 function draw() {
   if (!root) return;
   clear(root);
+  revealOff?.();
+
+  /* Indexing: hold a skeleton shaped like this page, never the empty state. */
+  if (!state.ready) {
+    loadingState(root, "home");
+    return;
+  }
 
   if (!state.index.media.length) {
     emptyState(root, {
@@ -58,20 +69,23 @@ function draw() {
   const spot = spotlight();
   if (spot) root.append(spot);
 
-  for (const sec of [
-    railSection("Jump back in", "Things you saved and never opened", unseenList(), 12),
-    railSection("Most liked", "The posts that landed hardest", byLikes(), 12),
-    railSection("Long form", "Videos over three minutes", longForm(), 10),
-    railSection("Photo stories", "Posts with more than one image", multiPhoto(), 10),
-    railSection("Recently saved", "Newest first", recentList(), 12),
-  ]) {
+  const rails = [
+    ["Jump back in", "Things you saved and never opened", unseenList(), 12],
+    ["Most liked", "The posts that landed hardest", byLikes(), 12],
+    ["Long form", "Videos over three minutes", longForm(), 10],
+    ["Photo stories", "Posts with more than one image", multiPhoto(), 10],
+    ["Recently saved", "Newest first", recentList(), 12],
+  ];
+  rails.forEach(([title, subtitle, items, limit], i) => {
+    const sec = railSection(title, subtitle, items, limit, i + 1);
     if (sec) root.append(sec);
-  }
+  });
 
-  const cr = creators();
+  const cr = creators(rails.length + 1);
   if (cr) root.append(cr);
 
   root.append(footer(s));
+  revealOff = reveal(root);
 }
 
 /* -------------------------------------------------------------- greeting -- */
@@ -80,15 +94,18 @@ function greeting(s) {
   const hour = new Date().getHours();
   const word = hour < 5 ? "Still up" : hour < 12 ? "Good morning"
     : hour < 18 ? "Good afternoon" : "Good evening";
+  const [first, ...rest] = word.split(" ");
+  const today = new Intl.DateTimeFormat(undefined, { weekday: "long", month: "long", day: "numeric" }).format(new Date());
   return h("header.greet",
     h("div.greet__text",
-      h("h1.t-display", { text: word + "." }),
+      h("span.t-kicker", { text: `Private collection · ${today}` }),
+      h("h1.t-display", `${first} `, h("em", { text: `${rest.join(" ")}.` })),
       h("p.greet__line",
         h("b.t-num", { text: fmtCount(s.media) }), " items from ",
         h("b.t-num", { text: fmtCount(s.creators) }), " creators",
         s.unseen ? h("span", { text: ` · ${fmtCount(s.unseen)} unopened` })
           : " · you've seen it all")),
-    h("button.greet__cta.btn", {
+    h("button.greet__cta.btn.btn--pri", {
       type: "button",
       onclick: () => {
         setQuery({ unseen: true, sort: "recent", search: "", kind: "all", author: null, starred: false });
@@ -107,7 +124,9 @@ function spotlight() {
   const item = items[0];
   if (!item) return null;
   const p = postOf(item);
-  return h("section.spotlight",
+  const box = mediaBox(item, p, { eager: true, sizes: "min(92vw, 1100px)", className: "spotlight__box" });
+  wireHoverPreview(box, item, p);
+  return h("section.spotlight.reveal",
     h("div.spotlight__head",
       h("h2.t-h2", { text: state.prefs.blurMedia ? "Saved for later" : "Fresh in your archive" }),
       h("button.spotlight__all", {
@@ -115,13 +134,14 @@ function spotlight() {
         onclick: () => { setQuery({ unseen: true, sort: "recent" }); navigate("library"); },
       },
         h("span", { text: "See all" }), icon("arrowRight", 15))),
-    h("button.spotlight__media", {
-      type: "button",
-      "aria-label": `Open item by @${p.author_username}`,
-      onclick: () => import("../viewer.js").then(({ openViewer }) => openViewer(items, 0)),
-    },
-      mediaBox(item, p, { eager: true, sizes: "min(92vw, 1100px)", className: "spotlight__box" })),
-    h("div.spotlight__foot",
+    h("div.spotlight__frame",
+      h("button.spotlight__media", {
+        type: "button",
+        "aria-label": `Open item by @${p.author_username}`,
+        onclick: () => import("../viewer.js").then(({ openViewer }) => openViewer(items, 0)),
+      },
+        box),
+      h("div.spotlight__foot",
       avatar(p.author_profile_image_url, 28, p.author_name),
       h("span.spotlight__who",
         h("b", { text: p.author_name || p.author_username }),
@@ -130,17 +150,18 @@ function spotlight() {
         ? h("span.spotlight__likes.t-num", icon("heart", 12), fmtCount(p.like_count_at_capture))
         : null,
       h("p.spotlight__why.t-small", {
-        text: p.text ? p.text.replace(/\s+/g, " ").slice(0, 160) : `Saved ${fmtAgo(p.capturedAt)}`,
-      })));
+          text: p.text ? p.text.replace(/\s+/g, " ").slice(0, 160) : `Saved ${fmtAgo(p.capturedAt)}`,
+        }))));
 }
 
 /* ----------------------------------------------------------------- rails -- */
 
-function railSection(title, subtitle, items, limit) {
+function railSection(title, subtitle, items, limit, index = 0) {
   if (!items.length) return null;
-  return h("section.block",
+  return h("section.block.reveal",
     h("div.block__head",
       h("div.block__title",
+        index ? h("span.block__eyebrow", h("span.block__idx.t-num", { text: String(index).padStart(2, "0") })) : null,
         h("h2.t-h2", { text: title }),
         h("p.t-small", { text: subtitle })),
       h("button.block__all", { type: "button", onclick: () => openAll(title) },
@@ -163,12 +184,13 @@ function openAll(title) {
 
 /* --------------------------------------------------------------- creators -- */
 
-function creators() {
+function creators(index = 0) {
   const list = topAuthors(14).filter((a) => a.count >= 2);
   if (list.length < 3) return null;
-  return h("section.block",
+  return h("section.block.reveal",
     h("div.block__head",
       h("div.block__title",
+        index ? h("span.block__eyebrow", h("span.block__idx.t-num", { text: String(index).padStart(2, "0") })) : null,
         h("h2.t-h2", { text: "Creators you save most" }),
         h("p.t-small", { text: `${stats().creators} in your archive` }))),
     h("div.creators", list.map((a) => h("button.creator", {
@@ -179,25 +201,30 @@ function creators() {
         navigate("library");
       },
     },
-      avatar(a.avatar, 52, a.name),
+      avatar(a.avatar, 58, a.name),
       h("span.creator__name", { text: a.name || a.username }),
       h("span.creator__count.t-tiny.t-num", { text: String(a.count) })))));
 }
 
 /* ---------------------------------------------------------------- footer -- */
 
-const stat = (label, value) =>
-  h("div.stat", h("b.t-num", { text: value }), h("small", { text: label }));
+const stat = (label, value, target, format) => {
+  const b = h("b.t-num", { text: value });
+  if (!countedUp && typeof target === "number") countUp(b, target, { format });
+  return h("div.stat", b, h("small", { text: label }));
+};
 
 function footer(s) {
-  return h("footer.home__foot",
+  const foot = h("footer.home__foot.reveal",
     h("div.home__stats",
-      stat("Photos", fmtCount(s.photos)),
-      stat("Videos", fmtCount(s.videos)),
-      stat("Watch time", fmtHours(s.watchTime)),
-      stat("Seen", `${s.pctSeen}%`)),
+      stat("Photos", fmtCount(s.photos), s.photos, fmtCount),
+      stat("Videos", fmtCount(s.videos), s.videos, fmtCount),
+      stat("Watch time", fmtHours(s.watchTime), s.watchTime, fmtHours),
+      stat("Seen", `${s.pctSeen}%`, s.pctSeen, (n) => `${Math.round(n)}%`)),
     h("button.btn.btn--ghost.btn--block", { type: "button", onclick: () => navigate("library") },
       "Open the full library", icon("arrowRight", 16)));
+  countedUp = true;
+  return foot;
 }
 
 /* --------------------------------------------------------------- queries -- */
@@ -263,7 +290,7 @@ function resumeRow() {
   const p = postOf(item);
   const pct = item.dur ? Math.min(100, (seconds / item.dur) * 100) : 0;
 
-  return h("button.resume", {
+  return h("button.resume.reveal", {
     type: "button",
     onclick: () => import("../viewer.js").then(({ openViewer }) => openViewer([item], 0)),
   },
@@ -276,4 +303,30 @@ function resumeRow() {
       h("span.resume__bar", h("span", { style: { width: `${pct}%` } })),
       h("small", { text: `${fmtDuration(seconds)} of ${fmtDuration(item.dur)} · @${p.author_username}` })),
   );
+}
+
+/* ------------------------------------------------------- hover preview -- */
+
+/* The spotlight breathes: on hover-capable pointers a video spotlight plays
+   itself muted until the pointer leaves. Never on touch or save-data. */
+function wireHoverPreview(box, item, p) {
+  if (item.kind === "photo") return;
+  if (!matchMedia?.("(hover: hover)")?.matches) return;
+  if (navigator.connection?.saveData) return;
+  const img = box.querySelector("img");
+  if (!img) return;
+  let vid = null;
+  box.closest("button")?.addEventListener("pointerenter", () => {
+    if (vid) return;
+    vid = videoEl(item, p, { loop: true, muted: true, eager: false });
+    vid.muted = true;
+    img.replaceWith(vid);
+    try { vid.play()?.catch?.(() => {}); } catch { /* no pipeline */ }
+  });
+  box.closest("button")?.addEventListener("pointerleave", () => {
+    if (!vid) return;
+    try { vid.pause?.(); } catch { /* no pipeline */ }
+    vid.replaceWith(img);
+    vid = null;
+  });
 }

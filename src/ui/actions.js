@@ -6,6 +6,7 @@ import { h, icon } from "./dom.js";
 import { state, markStarred, markHidden, markArchived, clearSelection, toggleSelected } from "../core/state.js";
 import { post } from "../core/query.js";
 import { overlay, toast, confirmDialog } from "./feedback.js";
+import { caption } from "./media.js";
 import { setQuery } from "../core/state.js";
 import { navigate } from "../shell.js";
 
@@ -32,6 +33,12 @@ export function itemActions(item) {
       } },
     { icon: "external", label: "Open on X", hint: "Leaves this app", hue: "var(--hue-a)",
       run: () => { window.open(p.canonical_url || p.tweet_url, "_blank", "noopener"); sheet.close(); } },
+    { icon: "copy", label: "Copy post text", hint: caption(p, 48) || "No text on this post", hue: "var(--hue-b)",
+      run: async () => {
+        try { await navigator.clipboard.writeText(caption(p, 2000) || ""); toast("Post text copied"); }
+        catch { toast("Could not reach the clipboard"); }
+        sheet.close();
+      } },
     { icon: "eyeOff", label: state.library.hidden[item.id] ? "Unhide from library" : "Hide from library", hint: "Reversible from Settings", hue: "var(--hue-d)",
       run: () => { const on = markHidden(item.id); sheet.close(); toast(on ? "Hidden from your library" : "Back in your library"); } },
     { icon: "archive", label: state.library.archived[item.postId] ? "Restore this post" : "Archive this post", hint: "Removes every item in it", hue: "var(--hue-e)",
@@ -71,6 +78,7 @@ export function selectionBar() {
       h("button.icon-btn", { type: "button", "aria-label": "Star selected", onclick: () => onAction("star") }, icon("star", 19)),
       h("button.icon-btn", { type: "button", "aria-label": "Hide selected", onclick: () => onAction("hide") }, icon("eyeOff", 19)),
       h("button.icon-btn", { type: "button", "aria-label": "Archive selected posts", onclick: () => onAction("archive") }, icon("archive", 19)),
+      h("button.icon-btn", { type: "button", "aria-label": "Export selected", onclick: () => onAction("export") }, icon("download", 19)),
       h("button.icon-btn", { type: "button", "aria-label": "Clear selection", onclick: () => { clearSelection(); } }, icon("close", 19)),
     );
     return barEl;
@@ -102,6 +110,11 @@ export async function runSelection(action) {
   }
   if (action === "unselect") {
     for (const id of ids) toggleSelected(id);
+  }
+  if (action === "export") {
+    const { downloadItems } = await import("../views/manage.js");
+    downloadItems(ids);
+    return;   /* non-destructive: keep the selection for what comes next */
   }
   clearSelection();
 }

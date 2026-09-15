@@ -7,8 +7,8 @@
    gesture that must never mis-fire.
    ========================================================================== */
 
-import { h, icon } from "./dom.js";
-import { state, isStarred, isViewed, toggleSelected, markStarred } from "../core/state.js";
+import { h, icon, haptic, burst } from "./dom.js";
+import { state, isStarred, isViewed, toggleSelected, markStarred, getProgress } from "../core/state.js";
 import { post } from "../core/query.js";
 import { mediaBox, avatar, fmtCount } from "./media.js";
 import { registerTileBuilder } from "./grid.js";
@@ -33,6 +33,10 @@ export function tile(item, list, { eager = false, index } = {}) {
 
   const media = mediaBox(item, p, { eager, sizes: "(max-width: 719px) 46vw, 220px" });
   media.append(veil);
+  /* On-frame state: the star (touch has no hover veil) and the resume
+     hairline for clips parked part-way through. */
+  media.append(h("span.tile__star", { "aria-hidden": "true" }, icon("starFill", 12)));
+  media.append(h("span.tile__progress", { "aria-hidden": "true" }, h("i")));
 
   const meta = h("div.tile__meta",
     avatar(p.author_profile_image_url, 20, p.author_name),
@@ -42,12 +46,30 @@ export function tile(item, list, { eager = false, index } = {}) {
 
   el.append(media, meta);
 
-  el.addEventListener("click", () => {
+  /* Touch long-press enters selection mode, the way every gallery does.
+     The synthetic contextmenu some browsers fire afterwards is swallowed. */
+  let lpTimer = 0, lpAt = 0;
+  el.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "mouse" || state.ui.selecting) return;
+    clearTimeout(lpTimer);
+    lpTimer = setTimeout(() => {
+      lpAt = Date.now();
+      toggleSelected(item.id);
+      paint(el, item);
+      haptic(18);
+    }, 480);
+  });
+  for (const t of ["pointerup", "pointercancel", "pointermove"]) {
+    el.addEventListener(t, () => clearTimeout(lpTimer), { passive: true });
+  }
+  el.addEventListener("click", (e) => {
+    if (Date.now() - lpAt < 900) { e.preventDefault(); e.stopPropagation(); lpAt = 0; return; }
     if (state.ui.selecting) { toggleSelected(item.id); paint(el, item); return; }
     import("../viewer.js").then(({ openViewer }) => openViewer(list, idx));
   });
   el.addEventListener("contextmenu", (e) => {
     e.preventDefault();
+    if (Date.now() - lpAt < 900) return;
     toggleSelected(item.id);
     paint(el, item);
   });
@@ -66,7 +88,11 @@ registerTileBuilder((item, list, i) => tile(item, list, { index: i, eager: i < 4
  */
 export function rail(items, { label, eager = 2 } = {}) {
   const strip = h("div.rail", { role: "group", "aria-label": label, tabindex: "0" });
-  items.forEach((item, i) => strip.append(tile(item, items, { eager: i < eager, index: i })));
+  items.forEach((item, i) => {
+    const t = tile(item, items, { eager: i < eager, index: i });
+    t.style.setProperty("--i", String(Math.min(i, 11)));   /* entrance stagger */
+    strip.append(t);
+  });
   return strip;
 }
 
@@ -79,6 +105,10 @@ function starBtn(item) {
       const on = markStarred(item.id);
       e.currentTarget.classList.toggle("is-on", on);
       e.currentTarget.replaceChildren(icon(on ? "starFill" : "star", 16));
+      if (on) {
+        haptic(10);
+        burst(e.currentTarget.closest(".tile__media"));
+      }
     },
   }, icon(isStarred(item.id) ? "starFill" : "star", 16));
 }
@@ -88,6 +118,11 @@ function paint(el, item) {
   el.classList.toggle("is-seen", state.prefs.dimSeen && isViewed(item.id));
   el.classList.toggle("is-selected", state.ui.selected.has(item.id));
   el.setAttribute("aria-pressed", state.ui.selected.has(item.id) ? "true" : "false");
+  const bar = el.querySelector(".tile__progress i");
+  const secs = getProgress(item.id);
+  const pct = item.dur > 5 && secs > 1 ? Math.min(100, (secs / item.dur) * 100) : 0;
+  el.classList.toggle("has-progress", pct > 0);
+  if (bar) bar.style.width = `${pct}%`;
 }
 
 /** Patch star / seen / selection state in place after a store change. */

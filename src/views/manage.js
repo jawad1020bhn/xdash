@@ -15,9 +15,16 @@ import { backendName, estimateBytes } from "../core/store.js";
 import { fmtBytes, fmtCount } from "../ui/media.js";
 import { stats } from "../core/query.js";
 
-export function openManage() {
-  const sheet = overlay({ title: "Import & export" });
+export function openManage(firstRun = false) {
+  const sheet = overlay({ title: firstRun ? "Welcome to your archive" : "Import & export" });
   const c = sheet.content;
+
+  if (firstRun) {
+    c.append(h("p.t-small", {
+      style: { color: "var(--text-2)", padding: "2px 4px 0" },
+      text: "This room is empty — it fills the moment you bring an export in. Drop your POSTS.json below; everything stays on this device.",
+    }));
+  }
 
   const status = h("div.row",
     h("span.row__icon.hue", { style: { "--hue": "var(--hue-b)" } }, icon("database", 18)),
@@ -31,14 +38,27 @@ export function openManage() {
   }).catch(() => {});
 
   c.append(h("div.sheet__group", h("span.t-label", { text: "Bring data in" })));
-  c.append(h("button.row", { type: "button", onclick: () => pickFile(sheet) },
-    h("span.row__icon.hue", { style: { "--hue": "var(--hue-d)" } }, icon("upload", 18)),
-    h("span.row__text",
-      h("b", { text: "Import an export file" }),
-      h("small", { text: "Accepts the extension's JSON: an array, or {bookmarks: []}" }),
-    ),
-    icon("chevronRight", 16),
-  ));
+  const dz = h("div.dropzone", {
+    role: "button", tabindex: "0",
+    "aria-label": "Import an export file: drop it here or press Enter to browse",
+  },
+    h("span.dropzone__icon", icon("upload", 22)),
+    h("b", { text: "Drop your export here" }),
+    h("small", { text: "POSTS.json — an array, or {bookmarks: []}" }),
+  );
+  dz.addEventListener("click", () => pickFile(sheet));
+  dz.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pickFile(sheet); }
+  });
+  dz.addEventListener("dragover", (e) => { e.preventDefault(); dz.classList.add("is-over"); });
+  dz.addEventListener("dragleave", () => dz.classList.remove("is-over"));
+  dz.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dz.classList.remove("is-over");
+    const file = e.dataTransfer?.files?.[0];
+    if (file) importFile(file, sheet);
+  });
+  c.append(dz);
 
   c.append(h("div.sheet__group", h("span.t-label", { text: "Take data out" })));
   c.append(h("button.row", {
@@ -84,29 +104,37 @@ function pickFile(sheet) {
   input.addEventListener("change", async () => {
     const file = input.files?.[0];
     input.remove();
-    if (!file) return;
-    try {
-      const json = JSON.parse(await file.text());
-      const bookmarks = Array.isArray(json) ? json : json.bookmarks || json.posts || json.data;
-      if (!Array.isArray(bookmarks) || !bookmarks.length) throw new Error("No bookmarks array found in that file");
-      await persistBookmarks(bookmarks);
-      await invalidateIndex();
-      sheet.close();
-      toast(`Imported ${bookmarks.length} bookmarks — reloading`, { duration: 2500 });
-      setTimeout(() => location.reload(), 900);
-    } catch (err) {
-      toast(`Could not read that file: ${err.message}`, { duration: 7000 });
-    }
+    if (file) importFile(file, sheet);
   });
   input.click();
 }
 
+/* One intake for the picker and the dropzone. */
+async function importFile(file, sheet) {
+  if (file.size > 200 * 1024 * 1024) {
+    toast("That file is over 200 MB — the browser cannot safely hold it.", { duration: 7000 });
+    return;
+  }
+  try {
+    const json = JSON.parse(await file.text());
+    const bookmarks = Array.isArray(json) ? json : json.bookmarks || json.posts || json.data;
+    if (!Array.isArray(bookmarks) || !bookmarks.length) throw new Error("No bookmarks array found in that file");
+    await persistBookmarks(bookmarks);
+    await invalidateIndex();
+    sheet.close();
+    toast(`Imported ${bookmarks.length} bookmarks — reloading`, { duration: 2500 });
+    setTimeout(() => location.reload(), 900);
+  } catch (err) {
+    toast(`Could not read that file: ${err.message}`, { duration: 7000 });
+  }
+}
+
 /* ---------------------------------------------------------------- export -- */
 
-function download(sheet) {
-  const bookmarks = [];
-  for (const post of state.index.posts.values()) {
-    const items = state.index.media.filter((m) => m.postId === post.id);
+function toBookmark(post, items) {
+  if (!post) return null;
+  const list = items || state.index.media.filter((m) => m.postId === post.id);
+  {
     const out = { ...post };
     delete out.mediaIds;
     delete out.haystack;
@@ -115,7 +143,7 @@ function download(sheet) {
     delete out.capturedAt;
     out.tweet_id = post.id;
     out.captured_at = new Date(post.capturedAt || 0).toISOString();
-    out.media_items = items.map((m) => ({
+    out.media_items = list.map((m) => ({
       type: m.kind === "gif" ? "animated_gif" : m.kind,
       url: m.kind === "photo" ? m.full : m.thumb,
       poster: m.poster || m.thumb,
@@ -127,9 +155,11 @@ function download(sheet) {
       position: m.pos,
       alt: m.alt || undefined,
     }));
-    bookmarks.push(out);
+    return out;
   }
+}
 
+function writeDownload(bookmarks, filename) {
   const payload = {
     export_version: 1,
     exported_at: new Date().toISOString(),
@@ -137,14 +167,42 @@ function download(sheet) {
     note: "Exported from the Archive dashboard. The unused `raw` payload is not included.",
     bookmarks,
   };
-
   const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
-  const a = h("a", { href: url, download: `archive-${new Date().toISOString().slice(0, 10)}.json` });
+  const a = h("a", { href: url, download: filename });
   document.body.append(a);
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+/** The current multi-selection, exported as its own archive file. */
+export function downloadItems(ids) {
+  const wanted = new Set(ids);
+  const byPost = new Map();
+  for (const m of state.index.media) {
+    if (!wanted.has(m.id)) continue;
+    if (!byPost.has(m.postId)) byPost.set(m.postId, []);
+    byPost.get(m.postId).push(m);
+  }
+  const bookmarks = [];
+  for (const [pid, items] of byPost) {
+    const out = toBookmark(state.index.posts.get(pid), items);
+    if (out) bookmarks.push(out);
+  }
+  if (!bookmarks.length) { toast("Nothing selected to export"); return; }
+  writeDownload(bookmarks, `archive-selection-${new Date().toISOString().slice(0, 10)}.json`);
+  toast(`Exported ${bookmarks.length} post${bookmarks.length === 1 ? "" : "s"} from your selection`);
+}
+
+function download(sheet) {
+  const bookmarks = [];
+  for (const post of state.index.posts.values()) {
+    const out = toBookmark(post);
+    if (out) bookmarks.push(out);
+  }
+
+  writeDownload(bookmarks, `archive-${new Date().toISOString().slice(0, 10)}.json`);
   sheet.close();
   toast(`Exported ${bookmarks.length} bookmarks`);
 }
