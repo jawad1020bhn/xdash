@@ -99,7 +99,7 @@ grid must produce ≥4 equal-width columns, Watch must rebuild once data lands,
 and Escape must close the palette.
 
 ```
-36/36 checks passed
+57/57 checks passed
 ```
 
 Visual verification was done in a real headless Chromium (screenshots at
@@ -115,3 +115,28 @@ could not close.
 - The 12-month chart is honest about single-session captures: it plots when
   posts were *originally posted*, and the greeting says "imported … in one go"
   instead of pretending at a 30-day habit.
+
+## 7 · v3.2 — one treatment for every video format
+
+Owner report: *"videos size are not all the same, there is different
+format."* The archive mixes 9:16 phone clips, 16:9 landscape, square and
+ultra-wide media, and v3.1 forced every surface toward one shape, which made
+the format mix look broken rather than intentional:
+
+- **Grid cropped every clip to one fixed ratio.** The per-item `--aspect`
+  variable was plumbed but never read; `object-fit: cover` centre-cropped
+  landscape clips into portrait boxes. The windowed grid now packs tiles
+  shortest-column-first (masonry) using each item's real width/height,
+  clamped to 0.5–2.2 so a banner frame cannot eat a column.
+- **Watch forced every cell to `contain`, so formats visibly changed size
+  between swipes.** Watch now defaults to `cover` — every cell is a uniform
+  full screen — with a top-bar toggle (and Settings switch) for `contain`
+  when the whole frame matters more than uniformity. The viewer theatre
+  gets the same toggle (`C`), defaulting to `contain`.
+- **One dead MP4 URL meant a black player.** The projection kept only the
+  top rendition; `mp4_variants` and `hls` existed in the export but were
+  discarded. Every video now ships a best-first source ladder (highest MP4 →
+  smaller MP4s → HLS) the browser walks natively, plus a visible badge for
+  poster-only exports instead of a black frame.
+- Videos resume at saved progress in both surfaces, and the outgoing clip
+  is paused before a viewer step.

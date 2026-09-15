@@ -8,9 +8,9 @@
    ========================================================================== */
 
 import { h, icon, clear, pushEsc } from "../ui/dom.js";
-import { state, setQuery, subscribe, markStarred, isStarred, saveProgress } from "../core/state.js";
+import { state, setQuery, subscribe, markStarred, isStarred, saveProgress, getProgress, setPrefs } from "../core/state.js";
 import { results, post as postOf, reshuffle } from "../core/query.js";
-import { avatar, caption, fmtCount, describe } from "../ui/media.js";
+import { avatar, caption, fmtCount, describe, videoEl } from "../ui/media.js";
 import { emptyState } from "../ui/feedback.js";
 import { navigate } from "../shell.js";
 
@@ -26,6 +26,7 @@ let unsub = [];
 export function mount(host) {
   list = results().slice();
   root = h("div.watch", { "aria-label": "Immersive feed" });
+  root.dataset.fit = state.prefs.watchFit || "cover";
   host.append(root);
 
   /* The archive may still be loading: rebuild the feed the moment it lands. */
@@ -67,12 +68,25 @@ export function unmount() { teardown(); host = null; }
 /* ------------------------------------------------------------------ top -- */
 
 function topBar() {
+  const fitBtn = h("button.icon-btn", {
+    type: "button",
+    "aria-label": "Toggle crop-to-fill",
+    title: "Crop to fill / show whole frame",
+    onclick: () => {
+      const fit = (state.prefs.watchFit || "cover") === "cover" ? "contain" : "cover";
+      setPrefs({ watchFit: fit });
+      root.dataset.fit = fit;
+      fitBtn.replaceChildren(icon(fit === "cover" ? "expand" : "compress", 20));
+    },
+  }, icon((state.prefs.watchFit || "cover") === "cover" ? "expand" : "compress", 20));
+
   return h("div.watch__top",
     h("button.icon-btn", { type: "button", "aria-label": "Leave Watch", onclick: () => navigate("home") }, icon("close", 22)),
     h("button.icon-btn", {
       type: "button", "aria-label": "Shuffle the feed",
       onclick: () => { reshuffle(); setQuery({ sort: "random" }); },
     }, icon("shuffle", 20)),
+    fitBtn,
     h("span.watch__idx", { text: `1 / ${list.length}` }),
   );
 }
@@ -124,11 +138,15 @@ function buildCell(item, i) {
     });
     media.append(img);
   } else {
-    const video = h("video", {
-      playsinline: "", muted: "", loop: "",
-      poster: item.poster || "", src: item.video || "",
-      "aria-label": describe(item, p),
-    });
+    /* A snap feed loops: a clip that ends on a frozen frame feels broken.
+       The theatre (viewer.js) is where looping is a preference. */
+    const video = videoEl(item, p, { loop: true, muted: true, eager: i === current });
+    /* Resume where this clip was last parked. */
+    const resume = getProgress(item.id);
+    if (resume > 1) {
+      const seek = () => { try { video.currentTime = Math.min(resume, (video.duration || Infinity) - 0.5); } catch { /* no pipeline */ } };
+      video.addEventListener("loadedmetadata", seek, { once: true });
+    }
     video.addEventListener("timeupdate", () => saveProgress(item.id, video.currentTime));
     media.append(video);
     cell.dataset.video = "1";

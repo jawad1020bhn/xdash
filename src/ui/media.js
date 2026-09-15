@@ -12,6 +12,19 @@
 import { h, icon } from "./dom.js";
 import { sizedImage, sizedAvatar } from "../core/data.js";
 
+/* The export carries everything from 9:16 phone clips to 2.35:1 banners.
+   Both ends are real media but make an unreadable grid, so tiles clamp the
+   packing ratio to this band — the clamped sliver is what cover crops. */
+export const ASPECT_MIN = 0.5;
+export const ASPECT_MAX = 2.2;
+
+/** Honest width/height for an item, within the tile clamp band. */
+export function itemAspect(item, fallback = 0.8) {
+  const a = item?.aspect > 0 ? item.aspect
+    : item?.w && item?.h ? item.w / item.h : fallback;
+  return Math.min(ASPECT_MAX, Math.max(ASPECT_MIN, a || fallback));
+}
+
 /* ------------------------------------------------------------- describe -- */
 
 export function describe(item, post) {
@@ -71,7 +84,7 @@ export function thumbImg(item, post, { eager = false, sizes = "(max-width: 719px
 /** The aspect-reserved media box with its badges. */
 export function mediaBox(item, post, { eager = false, sizes, className = "" } = {}) {
   const box = h(`div.tile__media${className ? ` ${className}` : ""}`);
-  box.style.setProperty("--aspect", String(item.aspect || 1));
+  box.style.setProperty("--aspect", String(itemAspect(item)));
   box.append(thumbImg(item, post, { eager, sizes }));
 
   if (item.n > 1) box.append(h("span.tile__count", icon("image", 12), `${item.pos}/${item.n}`));
@@ -82,6 +95,72 @@ export function mediaBox(item, post, { eager = false, sizes, className = "" } = 
     ));
   }
   return box;
+}
+
+/* --------------------------------------------------------------- video -- */
+
+/**
+ * Build a <video> for an item, with a best-first source ladder:
+ *   1. highest-bitrate MP4 rendition
+ *   2. every smaller MP4 rendition (expired/rate-limited URLs then degrade,
+ *      never break)
+ *   3. the HLS stream on browsers that play it natively
+ * If even the poster is present without any playable stream, the poster is
+ * shown with a badge rather than a black player.
+ */
+export function videoEl(item, post, { controls = false, loop = false, muted = false, eager = true } = {}) {
+  const video = h("video", {
+    playsinline: "",
+    controls: controls ? "" : null,
+    loop: loop ? "" : null,
+    muted: muted ? "" : null,
+    preload: eager ? "auto" : "metadata",
+    poster: item.poster || "",
+    referrerpolicy: "no-referrer",   /* pbs/video.twimg.com expect this */
+    "aria-label": describe(item, post),
+  });
+
+  const sources = (item.sources && item.sources.length)
+    ? item.sources
+    : (item.video ? [{ url: item.video, type: "video/mp4" }] : []);
+
+  /* Fallback UI must be a sibling of the <video> — content inside a
+     supported media element never paints. */
+  const attachBadge = (label, icn = "bolt") => {
+    const attach = () => {
+      const host = video.parentElement;
+      if (!host || host.querySelector(".vid-fallback")) return;
+      host.append(h("span.vid-fallback", icon(icn, 16), label));
+    };
+    if (video.parentElement) attach();
+    else queueMicrotask(attach);
+  };
+
+  if (!sources.length) {
+    /* Poster-only exports: no stream at all — keep the frame, not a black
+       player. The poster becomes a background image so it cannot vanish. */
+    if (item.poster) video.style.backgroundImage = `url("${item.poster}")`;
+    video.removeAttribute("poster");
+    video.dataset.posterOnly = "true";
+    attachBadge(item.poster ? "Poster only — no stream archived" : "No video in export", "play");
+    return video;
+  }
+
+  /* The browser walks these in order natively: the first source whose type
+     it can decode AND whose network fetch succeeds plays; a refused or
+     expired rendition drops through to the next instead of a dead player.
+     HLS is last because only Safari advertises support for it. */
+  for (const src of sources) video.append(h("source", { src: src.url, type: src.type }));
+
+  video.addEventListener("error", () => {
+    if (video.currentSrc || video.getAttribute("src")) return;
+    /* currentSrc stays empty only after every <source> was exhausted. */
+    video.classList.add("is-broken");
+    attachBadge("Playback unavailable — source refused");
+  });
+  video.addEventListener("loadeddata", () => video.classList.add("is-loaded"), { once: true });
+
+  return video;
 }
 
 /* --------------------------------------------------------------- avatar -- */

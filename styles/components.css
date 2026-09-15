@@ -152,7 +152,9 @@
 }
 .tile__media {
   position: relative;
-  aspect-ratio: var(--tile-aspect);
+  /* Per-item ratio (set by mediaBox) wins; the global tile shape is the
+     fallback for skeletons and items whose dimensions are unknown. */
+  aspect-ratio: var(--aspect, var(--tile-aspect));
   border-radius: var(--tile-r);
   overflow: hidden;
   background: var(--media-bg);
@@ -522,3 +524,31 @@ button.row:hover { background: var(--surface-2); }
   color: var(--text-2);
 }
 .shortcut .kbd { min-width: 76px; text-align: center; }
+
+/* ----------------------------------------------------------- video states -- */
+
+/* Centred pill over a video whose stream could not play: an expired CDN URL,
+   a poster-only export, or a codec the browser refuses. Never a black tile. */
+.vid-fallback {
+  position: absolute;
+  left: 50%; top: 50%;
+  translate: -50% -50%;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 13px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / .66);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  color: rgb(255 255 255 / .9);
+  font-size: 11px;
+  font-weight: 750;
+  white-space: nowrap;
+  pointer-events: none;
+}
+video[data-poster-only] {
+  background-repeat: no-repeat;
+  background-position: center;
+}

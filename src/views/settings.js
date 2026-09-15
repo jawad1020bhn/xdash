@@ -23,7 +23,7 @@ export function openSettings() {
     () => state.prefs.themeMode, (v) => setPrefs({ themeMode: v })));
   c.append(rowSeg("Density", "How tightly the grid packs", ["compact", "cozy", "roomy"],
     () => state.prefs.density, (v) => setPrefs({ density: v })));
-  c.append(rowSeg("Tile shape", "The aspect every tile keeps", ["4/5", "1/1", "3/4", "16/10"],
+  c.append(rowSeg("Tile shape", "Fallback ratio for media with no dimensions", ["4/5", "1/1", "3/4", "16/10"],
     () => state.prefs.aspect, (v) => setPrefs({ aspect: v }), ["4:5", "1:1", "3:4", "16:10"]));
   c.append(rowSwitch("Reduce motion", "No springs, no fades", "motion",
     (on) => setPrefs({ motion: on ? "reduced" : "auto" }), () => state.prefs.motion === "reduced"));
@@ -34,6 +34,8 @@ export function openSettings() {
     (on) => setPrefs({ autoplay: on }), () => state.prefs.autoplay));
   c.append(rowSwitch("Start muted", "Sound only when you ask for it", "startMuted",
     (on) => setPrefs({ startMuted: on }), () => state.prefs.startMuted));
+  c.append(rowSwitch("Fill the screen in Watch", "Crop clips to fill; off shows the whole frame with black bars", "watchFit",
+    (on) => setPrefs({ watchFit: on ? "cover" : "contain" }), () => (state.prefs.watchFit || "cover") !== "contain"));
   c.append(rowSwitch("Remember progress", "Resume videos where you left them", "rememberProgress",
     (on) => setPrefs({ rememberProgress: on }), () => state.prefs.rememberProgress));
   c.append(rowSwitch("Dim what you have seen", "Opened tiles fade back", "dimSeen",

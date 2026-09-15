@@ -6,9 +6,9 @@
    ========================================================================== */
 
 import { h, icon, clear, pushEsc, reducedMotion } from "./ui/dom.js";
-import { state, markViewed, markStarred, isStarred, saveProgress } from "./core/state.js";
+import { state, markViewed, markStarred, isStarred, saveProgress, getProgress, setPrefs } from "./core/state.js";
 import { post } from "./core/query.js";
-import { avatar, caption, fmtCount, fmtDuration, describe } from "./ui/media.js";
+import { avatar, caption, fmtCount, fmtDuration, describe, videoEl as buildVideo } from "./ui/media.js";
 import { sizedImage } from "./core/data.js";
 
 let root = null;
@@ -25,6 +25,7 @@ export function openViewer(items, start = 0) {
   index = Math.max(0, Math.min(start, items.length - 1));
 
   root = h("div.vw", { role: "dialog", "aria-modal": "true", "aria-label": "Media viewer" });
+  root.dataset.fit = state.prefs.viewerFit || "contain";
   document.body.append(root);
   document.body.style.overflow = "hidden";
   releaseEsc = pushEsc(closeViewer);
@@ -53,6 +54,9 @@ export function closeViewer(instant = false) {
 
 function render() {
   if (!root) return;
+  /* Stop the outgoing clip before its element is removed, otherwise an
+     unmuted video can keep talking after the frame changes. */
+  try { videoEl?.pause?.(); } catch { /* no media pipeline */ }
   clear(root);
   videoEl = null;
 
@@ -85,19 +89,17 @@ function render() {
     img.addEventListener("error", () => { img.src = item.full || item.thumb; }, { once: true });
     stage.append(img);
   } else {
-    const video = h("video", {
-      controls: "",
-      playsinline: "",
-      poster: item.poster || "",
-      src: item.video || "",
-      loop: state.prefs.loop === false ? null : "",
-      muted: state.prefs.startMuted ? "" : null,
-      "aria-label": describe(item, p),
+    const video = buildVideo(item, p, {
+      controls: true,
+      loop: state.prefs.loop !== false,
+      muted: state.prefs.startMuted,
+      eager: true,
     });
-    if (!item.video && item.poster) {
-      /* Some exports carry only a poster: show it rather than a dead player. */
-      video.removeAttribute("src");
-      video.setAttribute("data-poster-only", "true");
+    /* Resume where this clip was last parked in the feed. */
+    const resume = getProgress(item.id);
+    if (resume > 1 && !video.dataset.posterOnly) {
+      const seek = () => { try { video.currentTime = Math.min(resume, (video.duration || Infinity) - 0.5); } catch { /* no pipeline */ } };
+      video.addEventListener("loadedmetadata", seek, { once: true });
     }
     video.addEventListener("timeupdate", () => saveProgress(item.id, video.currentTime));
     stage.append(video);
@@ -152,6 +154,12 @@ function render() {
         e.currentTarget.replaceChildren(icon(on ? "starFill" : "star", 22));
       },
     }, icon(starOn ? "starFill" : "star", 22)),
+    h("button.icon-btn", {
+      type: "button",
+      "aria-label": "Toggle crop-to-fill (C)",
+      title: "Crop to fill / show whole frame",
+      onclick: toggleFit,
+    }, icon((state.prefs.viewerFit || "contain") === "cover" ? "expand" : "compress", 22)),
     h("button.icon-btn", { type: "button", "aria-label": "Full screen (F)", onclick: toggleFullscreen }, icon("expand", 22)),
     h("button.icon-btn", {
       type: "button", "aria-label": "More actions",
@@ -200,6 +208,17 @@ function toggleFullscreen() {
   else root?.requestFullscreen?.().catch(() => {});
 }
 
+/** Cover (uniform, centre-cropped) vs contain (whole frame, letterboxed). */
+function toggleFit() {
+  if (!root) return;
+  const fit = root.dataset.fit === "cover" ? "contain" : "cover";
+  root.dataset.fit = fit;
+  setPrefs({ viewerFit: fit });
+  const btn = [...root.querySelectorAll(".vw__bar .icon-btn")]
+    .find((b) => /crop-to-fill/i.test(b.getAttribute("aria-label") || ""));
+  btn?.replaceChildren(icon(fit === "cover" ? "expand" : "compress", 22));
+}
+
 /* -------------------------------------------------------------- keyboard -- */
 
 function onKey(e) {
@@ -211,6 +230,7 @@ function onKey(e) {
     case "k": case "K": step(-1); break;
     case "s": case "S": root?.querySelector(".vw__bar .icon-btn.is-on, .vw__bar .icon-btn")?.blur(); markStarred(list[index].id); render(); break;
     case "f": case "F": toggleFullscreen(); break;
+    case "c": case "C": toggleFit(); break;
     case "m": case "M":
       if (videoEl) { videoEl.muted = !videoEl.muted; }
       break;

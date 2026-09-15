@@ -22,6 +22,8 @@ export const PREF_DEFAULTS = {
   /* Media */
   autoplay: true,             // play the centred item in Watch
   startMuted: true,           // a feed that shouts at you is a feed you close
+  watchFit: "cover",          // Watch feed: cover (uniform, cropped) | contain (whole frame, bars)
+  viewerFit: "contain",       // theatre: contain by default, cover on demand
   rememberProgress: true,
   dimSeen: true,              // dim tiles already opened
   blurMedia: false,           // privacy blur until tapped
@@ -205,6 +207,7 @@ export const isViewed = (id) => !!state.library.viewed[id];
 export const isStarred = (id) => !!state.library.starred[id];
 export const isArchived = (postId) => !!state.library.archived[postId];
 export const isHidden = (id) => !!state.library.hidden[id];
+export const getProgress = (id) => state.library.progress[id] || 0;
 
 /* ------------------------------------------------------------------ load -- */
 
