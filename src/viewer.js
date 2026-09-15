@@ -5,8 +5,8 @@
    thumb reach on a phone and within arrow-key reach on a desk.
    ========================================================================== */
 
-import { h, icon, clear, pushEsc, reducedMotion } from "./ui/dom.js";
-import { state, markViewed, markStarred, isStarred, saveProgress, getProgress, setPrefs } from "./core/state.js";
+import { h, icon, clear, pushEsc, reducedMotion, haptic, burst } from "./ui/dom.js";
+import { state, markViewed, markStarred, isStarred, saveProgress, getProgress, setPrefs, applyPrefs } from "./core/state.js";
 import { post } from "./core/query.js";
 import { avatar, caption, fmtCount, fmtDuration, describe, videoEl as buildVideo } from "./ui/media.js";
 import { sizedImage } from "./core/data.js";
@@ -16,6 +16,10 @@ let releaseEsc = null;
 let list = [];
 let index = 0;
 let videoEl = null;
+let prevFocus = null;
+let zoom = null;          /* { s, x, y, ox, oy, w, h, left, top } | null */
+let slideTimer = 0;
+let slideBtn = null;
 
 export function openViewer(items, start = 0) {
   if (!items?.length) return;
@@ -29,6 +33,8 @@ export function openViewer(items, start = 0) {
   document.body.append(root);
   document.body.style.overflow = "hidden";
   releaseEsc = pushEsc(closeViewer);
+  prevFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  paintThemeColor("#060504");
 
   render();
   requestAnimationFrame(() => root.classList.add("is-in"));
@@ -40,11 +46,16 @@ export function closeViewer(instant = false) {
   removeEventListener("keydown", onKey);
   releaseEsc?.();
   releaseEsc = null;
+  stopSlides();
   const el = root;
   root = null;
+  zoom = null;
   try { videoEl?.pause?.(); } catch { /* no media pipeline */ }
   videoEl = null;
   document.body.style.overflow = "";
+  applyPrefs();
+  try { prevFocus?.focus?.({ preventScroll: true }); } catch { /* opener gone */ }
+  prevFocus = null;
   if (instant) { el.remove(); return; }
   el.classList.remove("is-in");
   setTimeout(() => el.remove(), 180);
@@ -59,6 +70,7 @@ function render() {
   try { videoEl?.pause?.(); } catch { /* no media pipeline */ }
   clear(root);
   videoEl = null;
+  zoom = null;
 
   const item = list[index];
   const p = post(item);
@@ -122,6 +134,11 @@ function render() {
 
   /* ---- control bar ---- */
   const starOn = isStarred(item.id);
+  slideBtn = h("button.icon-btn", {
+    type: "button", "aria-label": "Slideshow", "aria-pressed": slideTimer ? "true" : "false",
+    class: slideTimer ? "is-on" : "",
+    onclick: () => toggleSlideshow(),
+  }, icon("play", 22));
   root.append(h("div.vw__bar",
     h("button.icon-btn", { type: "button", "aria-label": "Previous (J)", onclick: () => step(-1) }, icon("chevronLeft", 22)),
     item.kind !== "photo" ? h("button.icon-btn", {
@@ -147,6 +164,7 @@ function render() {
         const on = markStarred(item.id);
         e.currentTarget.classList.toggle("is-on", on);
         e.currentTarget.replaceChildren(icon(on ? "starFill" : "star", 22));
+        if (on) { haptic(10); burst(root.querySelector(".vw__stage")); }
       },
     }, icon(starOn ? "starFill" : "star", 22)),
     h("button.icon-btn", {
@@ -156,6 +174,7 @@ function render() {
       onclick: toggleFit,
     }, icon((state.prefs.viewerFit || "contain") === "cover" ? "expand" : "compress", 22)),
     h("button.icon-btn", { type: "button", "aria-label": "Full screen (F)", onclick: toggleFullscreen }, icon("expand", 22)),
+    slideBtn,
     h("button.icon-btn", {
       type: "button", "aria-label": "More actions",
       onclick: () => import("./ui/actions.js").then(({ itemActions }) => itemActions(item)),
@@ -183,11 +202,12 @@ function render() {
 
   if (state.prefs.markViewedOnOpen) markViewed(item.id);
 
-  /* swipe on touch */
-  wireSwipe(stage);
+  /* gestures: swipe, pinch, pan, zoom */
+  wireGestures(stage);
 }
 
-function step(dir) {
+function step(dir, auto = false) {
+  if (!auto) stopSlides();
   const next = index + dir;
   if (next < 0 || next >= list.length) return;
   index = next;
@@ -214,6 +234,11 @@ function toggleFit() {
   btn?.replaceChildren(icon(fit === "cover" ? "expand" : "compress", 22));
 }
 
+function paintThemeColor(hex) {
+  document.querySelectorAll('meta[name="theme-color"]')
+    .forEach((m) => m.setAttribute("content", hex));
+}
+
 /* -------------------------------------------------------------- keyboard -- */
 
 function onKey(e) {
@@ -235,15 +260,144 @@ function onKey(e) {
   }
 }
 
-/* ----------------------------------------------------------------- swipe -- */
+/* ------------------------------------------------------------ slideshow -- */
 
-function wireSwipe(stage) {
-  let x0 = null, y0 = null;
-  stage.addEventListener("pointerdown", (e) => { x0 = e.clientX; y0 = e.clientY; }, { passive: true });
-  stage.addEventListener("pointerup", (e) => {
-    if (x0 === null) return;
-    const dx = e.clientX - x0, dy = e.clientY - y0;
-    x0 = null;
-    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.6) step(dx < 0 ? 1 : -1);
+function toggleSlideshow() {
+  if (slideTimer) { stopSlides(); return; }
+  slideBtn?.classList.add("is-on");
+  slideBtn?.setAttribute("aria-pressed", "true");
+  slideTimer = setInterval(() => {
+    const v = videoEl;
+    if (v && !v.paused && !v.ended) return;   /* let the clip finish */
+    if (index >= list.length - 1) index = -1; /* wrap the room */
+    step(1, true);
+  }, 4500);
+}
+
+function stopSlides() {
+  if (!slideTimer) return;
+  clearInterval(slideTimer);
+  slideTimer = 0;
+  slideBtn?.classList.remove("is-on");
+  slideBtn?.setAttribute("aria-pressed", "false");
+}
+
+/* ------------------------------------------------------------------ zoom -- */
+
+const clampN = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+function zoomMedia() {
+  return root?.querySelector(".vw__stage img, .vw__stage video") || null;
+}
+
+/* Scale around the cursor point, then clamp the pan so the frame can never
+   be thrown off-screen. Base geometry is captured on first touch. */
+function zoomAt(cx, cy, s2) {
+  const m = zoomMedia();
+  if (!m) return;
+  if (!zoom) {
+    const r = m.getBoundingClientRect();
+    zoom = {
+      s: 1, x: 0, y: 0, ox: r.width / 2, oy: r.height / 2,
+      w: m.offsetWidth || r.width || 1, h: m.offsetHeight || r.height || 1,
+      left: r.left, top: r.top,
+    };
+  }
+  /* Media point under the cursor, in untransformed pixels. */
+  const px = (cx - zoom.left - zoom.x - zoom.ox) / zoom.s + zoom.ox;
+  const py = (cy - zoom.top - zoom.y - zoom.oy) / zoom.s + zoom.oy;
+  zoom.s = clampN(s2, 1, 4);
+  zoom.ox = clampN(px, 0, zoom.w);
+  zoom.oy = clampN(py, 0, zoom.h);
+  clampPan();
+  applyZoom();
+}
+
+function clampPan() {
+  if (!zoom) return;
+  const mx = ((zoom.s - 1) * zoom.w) / 2, my = ((zoom.s - 1) * zoom.h) / 2;
+  zoom.x = clampN(zoom.x, -mx, mx);
+  zoom.y = clampN(zoom.y, -my, my);
+}
+
+function applyZoom() {
+  const m = zoomMedia();
+  if (!m) return;
+  if (!zoom || zoom.s <= 1.01) {
+    m.style.transform = "";
+    m.style.transformOrigin = "";
+    m.style.cursor = "";
+    return;
+  }
+  m.style.transformOrigin = `${zoom.ox}px ${zoom.oy}px`;
+  m.style.transform = `translate(${zoom.x}px, ${zoom.y}px) scale(${zoom.s})`;
+  m.style.cursor = "grab";
+}
+
+function toggleZoom(cx, cy) {
+  if (zoom && zoom.s > 1.05) { zoom = null; applyZoom(); return; }
+  zoomAt(cx, cy, 2.4);
+}
+
+/* -------------------------------------------------------------- gestures -- */
+
+function wireGestures(stage) {
+  const pts = new Map();
+  let pinchD0 = 0, pinchS0 = 1, gestured = false, downAt = 0;
+
+  stage.addEventListener("pointerdown", (e) => {
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    gestured = false;
+    downAt = Date.now();
+    if (pts.size === 2) {
+      const [a, b] = [...pts.values()];
+      pinchD0 = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+      pinchS0 = zoom?.s || 1;
+    }
   }, { passive: true });
+
+  stage.addEventListener("pointermove", (e) => {
+    if (!pts.has(e.pointerId)) return;
+    const prev = pts.get(e.pointerId);
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.size === 2) {
+      const [a, b] = [...pts.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+      zoomAt((a.x + b.x) / 2, (a.y + b.y) / 2, (pinchS0 * d) / pinchD0);
+      gestured = true;
+      return;
+    }
+    if (zoom && zoom.s > 1) {
+      zoom.x += e.clientX - prev.x;
+      zoom.y += e.clientY - prev.y;
+      clampPan();
+      applyZoom();
+      gestured = true;
+    }
+  }, { passive: true });
+
+  const release = (e) => {
+    const start = pts.get(e.pointerId);
+    pts.delete(e.pointerId);
+    if (pts.size > 0 || !start) return;
+    if (gestured || (zoom && zoom.s > 1)) return;
+    const dx = e.clientX - start.x, dy = e.clientY - start.y;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.6) {
+      if (e.target.closest?.("video")) return;   /* scrubbers keep their drag */
+      step(dx < 0 ? 1 : -1);
+    } else if (dy > 90 && dy > Math.abs(dx) * 1.3 && Date.now() - downAt < 900) {
+      closeViewer();
+    }
+  };
+  stage.addEventListener("pointerup", release, { passive: true });
+  stage.addEventListener("pointercancel", () => pts.clear(), { passive: true });
+
+  stage.addEventListener("dblclick", (e) => {
+    if (e.target.closest?.("button")) return;
+    toggleZoom(e.clientX, e.clientY);
+  });
+  stage.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    zoomAt(e.clientX, e.clientY, (zoom?.s || 1) * (e.deltaY < 0 ? 1.18 : 1 / 1.18));
+  }, { passive: false });
 }

@@ -614,3 +614,42 @@ video[data-poster-only] {
   background-repeat: no-repeat;
   background-position: center;
 }
+
+/* -------------------------------------------------------------- star burst --
+   burst() scatters these ember dots from the moment of the tap. */
+.burst {
+  position: absolute; inset: 0; z-index: 6;
+  display: grid; place-items: center;
+  pointer-events: none; overflow: hidden; border-radius: inherit;
+}
+.burst i {
+  position: absolute; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--brand-1);
+  box-shadow: 0 0 8px color-mix(in oklab, var(--brand-1) 70%, transparent);
+  animation: burst-fly .62s var(--ease-out) both;
+}
+@keyframes burst-fly {
+  from { opacity: 1; translate: 0 0; scale: 1; }
+  to { opacity: 0; translate: var(--dx, 0) var(--dy, -30px); scale: .25; }
+}
+
+/* ---------------------------------------------------------------- dropzone --
+   The import sheet's landing pad: click, Enter, or a dropped file. */
+.dropzone {
+  display: grid; justify-items: center; gap: 6px;
+  padding: 26px 16px; border: 1.5px dashed var(--line-2); border-radius: var(--r-md);
+  color: var(--text-2); cursor: pointer;
+  transition: border-color .18s var(--ease), background .18s var(--ease), color .18s var(--ease);
+}
+.dropzone:hover, .dropzone:focus-visible { border-color: var(--brand-1); color: var(--text); outline: none; }
+.dropzone.is-over {
+  border-color: var(--brand-1); border-style: solid;
+  background: color-mix(in oklab, var(--brand-1) 8%, transparent);
+  color: var(--text);
+}
+.dropzone__icon {
+  display: grid; place-items: center; width: 44px; height: 44px; margin-bottom: 4px;
+  border-radius: 50%; background: var(--surface-3); color: var(--brand-1);
+}
+.dropzone b { font-size: var(--fs-body); color: var(--text); }
+.dropzone small { font-size: var(--fs-small); }

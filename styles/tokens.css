@@ -216,13 +216,19 @@
 /* Decorative keyframe loops go static under reduced motion. Durations are
    already zeroed above; this kills the loops' visual noise outright. */
 @media (prefers-reduced-motion: reduce) {
-  .sk::after, .spinner, .view-in, .rail .tile, .selbar { animation: none !important; }
+  .sk::after, .spinner, .view-in, .rail .tile, .selbar,
+  .burst i, .watch__flash { animation: none !important; }
+  .has-rv .reveal { opacity: 1 !important; translate: none !important; transition: none !important; }
 }
 :root[data-motion="reduced"] .sk::after,
 :root[data-motion="reduced"] .spinner,
 :root[data-motion="reduced"] .view-in,
 :root[data-motion="reduced"] .rail .tile,
-:root[data-motion="reduced"] .selbar { animation: none !important; }
+:root[data-motion="reduced"] .selbar,
+:root[data-motion="reduced"] .burst i,
+:root[data-motion="reduced"] .watch__flash { animation: none !important; }
+:root[data-motion="reduced"].has-rv .reveal,
+:root[data-motion="reduced"] .has-rv .reveal { opacity: 1 !important; translate: none !important; transition: none !important; }
 
 /* ==========================================================================
    Density + tile aspect — one attribute moves the whole grid.

@@ -7,16 +7,18 @@
    door into the full library. Everything here is a tile or a button.
    ========================================================================== */
 
-import { h, icon, clear } from "../ui/dom.js";
+import { h, icon, clear, countUp, reveal } from "../ui/dom.js";
 import { state, subscribe, setQuery } from "../core/state.js";
 import { post as postOf, stats, topAuthors } from "../core/query.js";
-import { mediaBox, avatar, thumbImg, fmtCount, fmtDuration, fmtAgo, fmtHours } from "../ui/media.js";
+import { mediaBox, avatar, thumbImg, fmtCount, fmtDuration, fmtAgo, fmtHours, videoEl } from "../ui/media.js";
 import { rail } from "../ui/card.js";
-import { emptyState } from "../ui/feedback.js";
+import { emptyState, loadingState } from "../ui/feedback.js";
 import { navigate } from "../shell.js";
 
 let unsub = [];
 let root = null;
+let revealOff = null;
+let countedUp = false;
 
 export function mount(host) {
   root = h("section.home.view-in");
@@ -28,6 +30,8 @@ export function mount(host) {
 export function unmount() {
   unsub.forEach((fn) => fn());
   unsub = [];
+  revealOff?.();
+  revealOff = null;
   root = null;
   unseenMemo = null;
   unseenKey = "";
@@ -38,6 +42,13 @@ export function unmount() {
 function draw() {
   if (!root) return;
   clear(root);
+  revealOff?.();
+
+  /* Indexing: hold a skeleton shaped like this page, never the empty state. */
+  if (!state.ready) {
+    loadingState(root, "home");
+    return;
+  }
 
   if (!state.index.media.length) {
     emptyState(root, {
@@ -74,6 +85,7 @@ function draw() {
   if (cr) root.append(cr);
 
   root.append(footer(s));
+  revealOff = reveal(root);
 }
 
 /* -------------------------------------------------------------- greeting -- */
@@ -112,7 +124,9 @@ function spotlight() {
   const item = items[0];
   if (!item) return null;
   const p = postOf(item);
-  return h("section.spotlight",
+  const box = mediaBox(item, p, { eager: true, sizes: "min(92vw, 1100px)", className: "spotlight__box" });
+  wireHoverPreview(box, item, p);
+  return h("section.spotlight.reveal",
     h("div.spotlight__head",
       h("h2.t-h2", { text: state.prefs.blurMedia ? "Saved for later" : "Fresh in your archive" }),
       h("button.spotlight__all", {
@@ -126,7 +140,7 @@ function spotlight() {
         "aria-label": `Open item by @${p.author_username}`,
         onclick: () => import("../viewer.js").then(({ openViewer }) => openViewer(items, 0)),
       },
-        mediaBox(item, p, { eager: true, sizes: "min(92vw, 1100px)", className: "spotlight__box" })),
+        box),
       h("div.spotlight__foot",
       avatar(p.author_profile_image_url, 28, p.author_name),
       h("span.spotlight__who",
@@ -144,7 +158,7 @@ function spotlight() {
 
 function railSection(title, subtitle, items, limit, index = 0) {
   if (!items.length) return null;
-  return h("section.block",
+  return h("section.block.reveal",
     h("div.block__head",
       h("div.block__title",
         index ? h("span.block__eyebrow", h("span.block__idx.t-num", { text: String(index).padStart(2, "0") })) : null,
@@ -173,7 +187,7 @@ function openAll(title) {
 function creators(index = 0) {
   const list = topAuthors(14).filter((a) => a.count >= 2);
   if (list.length < 3) return null;
-  return h("section.block",
+  return h("section.block.reveal",
     h("div.block__head",
       h("div.block__title",
         index ? h("span.block__eyebrow", h("span.block__idx.t-num", { text: String(index).padStart(2, "0") })) : null,
@@ -194,18 +208,23 @@ function creators(index = 0) {
 
 /* ---------------------------------------------------------------- footer -- */
 
-const stat = (label, value) =>
-  h("div.stat", h("b.t-num", { text: value }), h("small", { text: label }));
+const stat = (label, value, target, format) => {
+  const b = h("b.t-num", { text: value });
+  if (!countedUp && typeof target === "number") countUp(b, target, { format });
+  return h("div.stat", b, h("small", { text: label }));
+};
 
 function footer(s) {
-  return h("footer.home__foot",
+  const foot = h("footer.home__foot.reveal",
     h("div.home__stats",
-      stat("Photos", fmtCount(s.photos)),
-      stat("Videos", fmtCount(s.videos)),
-      stat("Watch time", fmtHours(s.watchTime)),
-      stat("Seen", `${s.pctSeen}%`)),
+      stat("Photos", fmtCount(s.photos), s.photos, fmtCount),
+      stat("Videos", fmtCount(s.videos), s.videos, fmtCount),
+      stat("Watch time", fmtHours(s.watchTime), s.watchTime, fmtHours),
+      stat("Seen", `${s.pctSeen}%`, s.pctSeen, (n) => `${Math.round(n)}%`)),
     h("button.btn.btn--ghost.btn--block", { type: "button", onclick: () => navigate("library") },
       "Open the full library", icon("arrowRight", 16)));
+  countedUp = true;
+  return foot;
 }
 
 /* --------------------------------------------------------------- queries -- */
@@ -271,7 +290,7 @@ function resumeRow() {
   const p = postOf(item);
   const pct = item.dur ? Math.min(100, (seconds / item.dur) * 100) : 0;
 
-  return h("button.resume", {
+  return h("button.resume.reveal", {
     type: "button",
     onclick: () => import("../viewer.js").then(({ openViewer }) => openViewer([item], 0)),
   },
@@ -284,4 +303,30 @@ function resumeRow() {
       h("span.resume__bar", h("span", { style: { width: `${pct}%` } })),
       h("small", { text: `${fmtDuration(seconds)} of ${fmtDuration(item.dur)} · @${p.author_username}` })),
   );
+}
+
+/* ------------------------------------------------------- hover preview -- */
+
+/* The spotlight breathes: on hover-capable pointers a video spotlight plays
+   itself muted until the pointer leaves. Never on touch or save-data. */
+function wireHoverPreview(box, item, p) {
+  if (item.kind === "photo") return;
+  if (!matchMedia?.("(hover: hover)")?.matches) return;
+  if (navigator.connection?.saveData) return;
+  const img = box.querySelector("img");
+  if (!img) return;
+  let vid = null;
+  box.closest("button")?.addEventListener("pointerenter", () => {
+    if (vid) return;
+    vid = videoEl(item, p, { loop: true, muted: true, eager: false });
+    vid.muted = true;
+    img.replaceWith(vid);
+    try { vid.play()?.catch?.(() => {}); } catch { /* no pipeline */ }
+  });
+  box.closest("button")?.addEventListener("pointerleave", () => {
+    if (!vid) return;
+    try { vid.pause?.(); } catch { /* no pipeline */ }
+    vid.replaceWith(img);
+    vid = null;
+  });
 }

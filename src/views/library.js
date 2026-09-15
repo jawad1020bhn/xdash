@@ -12,7 +12,7 @@ import { createGrid } from "../ui/grid.js";
 import { syncTiles } from "../ui/card.js";
 import { avatar, fmtCount } from "../ui/media.js";
 import { selectionBar, runSelection } from "../ui/actions.js";
-import { emptyState, overlay, toast, promptDialog, confirmDialog } from "../ui/feedback.js";
+import { emptyState, overlay, toast, promptDialog, confirmDialog, loadingState } from "../ui/feedback.js";
 
 let root = null;
 let grid = null;
@@ -38,7 +38,7 @@ export function unmount() {
 
 function onState() {
   if (!root) return;
-  if (!grid && state.index.media.length) { draw(); return; }
+  if (!grid && state.ready) { draw(); return; }
   const key = signature();
   if (key === lastKey) {
     grid?.sync(syncTiles);
@@ -72,6 +72,11 @@ function draw() {
   clearSelection();
   grid?.destroy();
   grid = null;
+
+  if (!state.ready) {
+    loadingState(root, "library");
+    return;
+  }
 
   const s = stats();
   if (!s.media) {
@@ -120,7 +125,7 @@ function head() {
   }
   return h("div", { style: { display: "flex", alignItems: "baseline", gap: "10px" } },
     h("h1.t-h1", { text: "Library" }),
-    h("span.lib__count.t-small", { text: "" }),
+    h("span.lib__count.t-small", { text: "", "aria-live": "polite" }),
   );
 }
 

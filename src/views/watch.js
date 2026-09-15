@@ -7,11 +7,11 @@
    a feed you close.
    ========================================================================== */
 
-import { h, icon, clear, pushEsc } from "../ui/dom.js";
-import { state, setQuery, subscribe, markStarred, isStarred, saveProgress, getProgress, setPrefs } from "../core/state.js";
+import { h, icon, clear, pushEsc, haptic, burst } from "../ui/dom.js";
+import { state, setQuery, subscribe, markStarred, isStarred, saveProgress, getProgress, setPrefs, applyPrefs } from "../core/state.js";
 import { results, post as postOf, reshuffle } from "../core/query.js";
 import { avatar, caption, fmtCount, describe, videoEl } from "../ui/media.js";
-import { emptyState } from "../ui/feedback.js";
+import { emptyState, loadingState } from "../ui/feedback.js";
 import { navigate } from "../shell.js";
 
 let root = null;
@@ -28,6 +28,7 @@ export function mount(host) {
   root = h("div.watch", { "aria-label": "Immersive feed" });
   root.dataset.fit = state.prefs.watchFit || "cover";
   host.append(root);
+  paintThemeColor("#000000");
 
   /* The archive may still be loading: rebuild the feed the moment it lands. */
   unsub.push(subscribe(() => {
@@ -37,7 +38,8 @@ export function mount(host) {
 
   if (!list.length) {
     const box = h("div", { style: { height: "100dvh", display: "grid", placeItems: "center" } });
-    emptyState(box, { icon: "play", title: "Nothing to watch", message: "Your archive has no media matching this view." });
+    if (!state.ready) loadingState(box, "watch");
+    else emptyState(box, { icon: "play", title: "Nothing to watch", message: "Your archive has no media matching this view." });
     root.append(box);
     return;
   }
@@ -61,6 +63,12 @@ function teardown() {
   root?.remove();
   root = null;
   col = null;
+  applyPrefs();   /* restore the theme-color the feed borrowed */
+}
+
+function paintThemeColor(hex) {
+  document.querySelectorAll('meta[name="theme-color"]')
+    .forEach((m) => m.setAttribute("content", hex));
 }
 
 export function unmount() { teardown(); host = null; }
@@ -80,6 +88,21 @@ function topBar() {
     },
   }, icon((state.prefs.watchFit || "cover") === "cover" ? "expand" : "compress", 20));
 
+  const muteBtn = h("button.icon-btn", {
+    type: "button",
+    "aria-label": state.prefs.startMuted ? "Unmute the feed" : "Mute the feed",
+    "aria-pressed": state.prefs.startMuted ? "false" : "true",
+    onclick: () => {
+      const muted = !state.prefs.startMuted;
+      setPrefs({ startMuted: muted });
+      const v = cells.get(current)?.querySelector("video");
+      if (v) v.muted = muted;
+      muteBtn.replaceChildren(icon(muted ? "volumeOff" : "volume", 20));
+      muteBtn.setAttribute("aria-label", muted ? "Unmute the feed" : "Mute the feed");
+      muteBtn.setAttribute("aria-pressed", muted ? "false" : "true");
+    },
+  }, icon(state.prefs.startMuted ? "volumeOff" : "volume", 20));
+
   return h("div.watch__top",
     h("button.icon-btn", { type: "button", "aria-label": "Leave Watch", onclick: () => navigate("home") }, icon("close", 22)),
     h("button.icon-btn", {
@@ -87,6 +110,7 @@ function topBar() {
       onclick: () => { reshuffle(); setQuery({ sort: "random" }); },
     }, icon("shuffle", 20)),
     fitBtn,
+    muteBtn,
     h("span.watch__idx", { text: `1 / ${list.length}` }),
   );
 }
@@ -148,7 +172,12 @@ function buildCell(item, i) {
       video.addEventListener("loadedmetadata", seek, { once: true });
     }
     video.addEventListener("timeupdate", () => saveProgress(item.id, video.currentTime));
+    const spin = h("span.watch__spin", { "aria-hidden": "true" }, h("span.spinner"));
+    video.addEventListener("waiting", () => spin.classList.add("is-in"));
+    video.addEventListener("playing", () => spin.classList.remove("is-in"));
+    video.addEventListener("canplay", () => spin.classList.remove("is-in"));
     media.append(video);
+    cell.append(spin);
     cell.dataset.video = "1";
   }
   cell.append(media, h("div.watch__scrim"));
@@ -162,6 +191,8 @@ function buildCell(item, i) {
     caption(p, 140) ? h("p.watch__text", { text: caption(p, 140) }) : null,
   ));
 
+  wireCellGestures(cell, item, i);
+
   const starOn = isStarred(item.id);
   cell.append(h("div.watch__acts",
     h("button.watch__act", {
@@ -171,6 +202,7 @@ function buildCell(item, i) {
         const on = markStarred(item.id);
         e.currentTarget.classList.toggle("is-on", on);
         e.currentTarget.replaceChildren(icon(on ? "starFill" : "star", 22));
+        if (on) { haptic(10); burst(cell.querySelector(".watch__media")); }
       },
     }, icon(starOn ? "starFill" : "star", 22)),
     h("button.watch__act", {
@@ -212,4 +244,53 @@ function pauseCell(cell) {
 
 function pauseAll() {
   for (const cell of cells.values()) pauseCell(cell);
+}
+
+/* -------------------------------------------------------------- gestures -- */
+
+/* Single tap toggles playback (photos open in the viewer); a double-tap
+   stars with a burst, the feed gesture everyone already knows. Control
+   taps are left alone. */
+function wireCellGestures(cell, item, i) {
+  let taps = 0, timer = 0;
+  cell.addEventListener("click", (e) => {
+    if (e.target.closest("button")) return;
+    taps++;
+    if (taps === 1) {
+      timer = setTimeout(() => { taps = 0; tapPrimary(cell, item, i); }, 260);
+    } else {
+      clearTimeout(timer);
+      taps = 0;
+      tapStar(cell, item);
+    }
+  });
+}
+
+function tapPrimary(cell, item, i) {
+  if (item.kind === "photo") {
+    import("../viewer.js").then(({ openViewer }) => openViewer(list, i));
+    return;
+  }
+  const video = cell.querySelector("video");
+  if (!video) return;
+  if (video.paused) { try { video.play()?.catch?.(() => {}); } catch {} flash(cell, "play"); }
+  else { try { video.pause?.(); } catch {} flash(cell, "pause"); }
+}
+
+function tapStar(cell, item) {
+  markStarred(item.id, true);
+  haptic(12);
+  burst(cell.querySelector(".watch__media"));
+  flash(cell, "starFill");
+  const btn = cell.querySelector(".watch__acts .watch__act");
+  btn?.classList.add("is-on");
+  btn?.replaceChildren(icon("starFill", 22));
+  btn?.setAttribute("aria-label", "Remove star");
+}
+
+/* A centre-screen glyph that blooms and fades on every tap action. */
+function flash(cell, glyph) {
+  const el = h("span.watch__flash", { "aria-hidden": "true" }, icon(glyph, 44));
+  cell.append(el);
+  setTimeout(() => el.remove(), 550);
 }

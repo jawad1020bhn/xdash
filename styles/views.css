@@ -802,3 +802,42 @@
 }
 .ins__spark { color: var(--brand-1); margin-top: 8px; }
 .ins__spark svg { width: 100%; height: 22px; }
+
+/* ------------------------------------------- loading-state layouts (skel) --
+   loadingState() shapes. Deliberately not .grid/.rail/.chart: skeletons must
+   never satisfy content assertions. */
+.skel-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--gap, 10px); padding: var(--s-4);
+}
+.skel-watch { height: 100dvh; display: grid; place-items: center; }
+.skel-home { display: grid; gap: var(--s-6); padding: var(--s-4) 0 var(--s-6); }
+.skel-home .boot__mast, .skel-home .boot__rail { padding-inline: var(--s-4); }
+
+/* -------------------------------------------------------- viewer gestures --
+   touch-action hands the pointer stream to wireGestures: pinch, pan, swipe. */
+.vw__stage img, .vw__stage video { touch-action: none; }
+
+/* ---------------------------------------------------------- watch gestures --
+   The snap column keeps native vertical panning; taps read as clicks, the
+   spinner shows only while the pipeline stalls, and every tap blooms a glyph. */
+.watch__cell { touch-action: pan-y; }
+.watch__spin {
+  position: absolute; inset: 0; z-index: 4;
+  display: grid; place-items: center; pointer-events: none;
+  opacity: 0; transition: opacity .25s var(--ease);
+}
+.watch__spin.is-in { opacity: 1; }
+.watch__spin .spinner { width: 30px; height: 30px; }
+.watch__flash {
+  position: absolute; left: 50%; top: 50%; translate: -50% -50%; z-index: 5;
+  display: grid; place-items: center; width: 84px; height: 84px; border-radius: 50%;
+  background: rgb(0 0 0 / .45); color: #fff; pointer-events: none;
+  animation: watch-flash .55s var(--ease-out) both;
+}
+@keyframes watch-flash {
+  0% { opacity: 0; scale: .5; }
+  25% { opacity: 1; scale: 1.08; }
+  60% { opacity: 1; scale: 1; }
+  100% { opacity: 0; scale: 1.15; }
+}

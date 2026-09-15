@@ -8,7 +8,7 @@
 
 import { h, icon, pushEsc, trapFocus } from "./dom.js";
 import { state, setQuery, setPrefs } from "../core/state.js";
-import { results, post as postOf } from "../core/query.js";
+import { results, post as postOf, topAuthors } from "../core/query.js";
 import { navigate, toggleTheme, showShortcuts } from "../shell.js";
 import { caption, thumbImg, avatar, fmtCount } from "./media.js";
 import { openSettings } from "../views/settings.js";
@@ -40,16 +40,24 @@ export function openPalette(initial = "") {
   let groups = [];
   let flat = [];
   let sel = 0;
+  const prevFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   const releaseEsc = pushEsc(close);
   const releaseTrap = trapFocus(box, input);
 
   function close() {
     if (root.dataset.closing) return;
     root.dataset.closing = "1";
+    const qv = input.value.trim();
+    if (qv.length > 1) {
+      setPrefs({ recentSearches: [qv, ...state.prefs.recentSearches.filter((r) => r.toLowerCase() !== qv.toLowerCase())].slice(0, 6) });
+    }
     releaseEsc();
     releaseTrap();
     root.classList.remove("is-in");
-    setTimeout(() => root.remove(), 160);
+    setTimeout(() => {
+      root.remove();
+      try { prevFocus?.focus?.({ preventScroll: true }); } catch { /* opener gone */ }
+    }, 160);
     open = null;
   }
   open = close;
@@ -121,6 +129,30 @@ export function openPalette(initial = "") {
         ),
         run: cmd.run,
       })) });
+    }
+
+    if (!q) {
+      const recents = state.prefs.recentSearches.filter(Boolean).slice(0, 4);
+      if (recents.length) {
+        groups.push({ group: "Recent", rows: recents.map((r) => addRow({
+          render: () => h("button.pal__item", { type: "button" },
+            h("span.row__icon.hue", { style: { "--hue": "var(--hue-d)" } }, icon("clock", 17)),
+            h("span.pal__txt", h("b", { text: r }), h("small", { text: "Search again" })),
+          ),
+          run: () => openPalette(r),
+        })) });
+      }
+      const tops = topAuthors(4);
+      if (tops.length) {
+        groups.push({ group: "Top creators", rows: tops.map((a) => addRow({
+          render: () => h("button.pal__item", { type: "button" },
+            avatar(a.avatar, 28, a.name),
+            h("span.pal__txt", h("b", { text: a.name || a.username }), h("small", { text: `@${a.username} · ${a.count} items` })),
+            h("span.pal__hint", { text: fmtCount(a.count) }),
+          ),
+          run: () => { setQuery({ author: a.username, search: "", unseen: false, starred: false }); navigate("library"); },
+        })) });
+      }
     }
 
     if (q) {

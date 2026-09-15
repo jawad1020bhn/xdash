@@ -6,7 +6,7 @@
    page stays media.
    ========================================================================== */
 
-import { h } from "../ui/dom.js";
+import { h, countUp } from "../ui/dom.js";
 import { state } from "../core/state.js";
 import { stats, post as postOf } from "../core/query.js";
 import { timeline, mix, leaderboard } from "../core/analytics.js";
@@ -22,10 +22,10 @@ export function openInsights() {
   /* ---- headline numbers, plain ---- */
   const months = timeline();
   c.append(h("div.ins",
-    cell(fmtCount(s.media), "items", sparkline(months.map((b) => b.total))),
-    cell(fmtCount(s.creators), "creators", sparkline(creatorSpark(months))),
-    cell(fmtHours(s.watchTime), "watch time", sparkline(months.map((b) => b.videos))),
-    cell(`${s.pctSeen}%`, "opened", sparkline(months.map((b) => b.total).reverse())),
+    cell(fmtCount(s.media), "items", sparkline(months.map((b) => b.total)), s.media, fmtCount),
+    cell(fmtCount(s.creators), "creators", sparkline(creatorSpark(months)), s.creators, fmtCount),
+    cell(fmtHours(s.watchTime), "watch time", sparkline(months.map((b) => b.videos)), s.watchTime, fmtHours),
+    cell(`${s.pctSeen}%`, "opened", sparkline(months.map((b) => b.total).reverse()), s.pctSeen, (n) => `${Math.round(n)}%`),
   ));
 
   /* ---- activity ---- */
@@ -73,9 +73,11 @@ export function openInsights() {
 
 const HUES = ["var(--hue-a)", "var(--hue-b)", "var(--hue-c)", "var(--hue-d)"];
 
-function cell(value, lbl, spark) {
+function cell(value, lbl, spark, target, format) {
+  const b = h("b.t-num", { text: value });
+  if (typeof target === "number") countUp(b, target, { format });
   return h("div.ins__cell",
-    h("b.t-num", { text: value }),
+    b,
     h("small", { text: lbl }),
     h("span.ins__spark", spark),
   );

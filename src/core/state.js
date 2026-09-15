@@ -33,6 +33,7 @@ export const PREF_DEFAULTS = {
   markViewedOnOpen: true,
   landing: "home",
   views: [],                  // saved library views: { name, query }
+  recentSearches: [],       // palette history, newest first (max 6)
 
   /* Access — user-set, replacing the hard-coded password v1 shipped */
   pin: null,

@@ -1,4 +1,4 @@
-# Archive — Design System (“The Screening Room”, v3.3)
+# Archive — Design System (“The Screening Room”, v3.4)
 
 The source of truth for the product's look, feel and motion. Built with the
 [OpenDesign](https://github.com/nexu-io/open-design) skill set —
@@ -121,3 +121,42 @@ on the document. The styling contracts that matter:
    `--font-display`, no remote stylesheets.
 
 Run it: `npm install`, then `npm start` (one shell) and `npm test` (another).
+
+## Wave 2 · Depth (v3.4)
+
+The reskin built the room; this wave taught it manners. Every addition below
+is a system, not a screen — one primitive, used everywhere it fits:
+
+- **Entrances.** `reveal()` (dom.js) lifts each Home section in on scroll,
+  gated on `.has-rv` so no-JS never hides content. Route changes crossfade
+  through `document.startViewTransition` with an instant fallback.
+- **Numbers that count.** `countUp()` rolls Home stats and Insight cells from
+  zero; the final value is always in the DOM first, so a starved rAF loop
+  degrades to the truth.
+- **Stars burst.** `burst()` scatters ember dots from every star action —
+  tiles, feed double-tap, viewer bar. One accent, one celebration.
+- **Theatre gestures.** The viewer pinches (1–4× around the cursor), pans
+  with clamped travel, double-clicks to 2.4×, swipes sideways to travel and
+  down to leave. A 4.5s slideshow wraps the room and yields to any manual
+  move or unfinished clip.
+- **Feed grammar.** Watch taps toggle playback (photos open), double-taps
+  star, a mute toggle joins the top cluster, and a spinner shows only while
+  the pipeline actually stalls.
+- **Keyboard-first grid.** Arrow/Home/End travel, one tab stop per fifty
+  tiles (roving tabindex), `posinset`/`setsize` on every tile, and a tile
+  error boundary that draws a fallback instead of breaking the packer.
+- **Palette memory.** Recent searches (max 6, persisted) and top creators
+  greet an empty query; focus returns to the opener on close — as it now
+  does for every overlay.
+- **Honest loading.** Skeletons shaped like their surface (never `.grid` /
+  `.rail` / `.chart`, so checks can't mistake them), and the boot message
+  carries real byte progress streamed off the fetch reader.
+- **First run.** An empty archive opens the import sheet with a welcome and
+  a dropzone (click, Enter, or drop; 200 MB guard) instead of a toast.
+- **Depth details.** `?q=` deep-links a Library search, the tab bar ducks on
+  scroll-down, Watch and the viewer borrow a black `theme-color` and hand it
+  back, selections export as their own archive file, and the item menu
+  copies post text.
+
+Motion budget unchanged: transform/opacity only, 140–220ms UI / 500ms
+entrances, everything static under reduced motion.

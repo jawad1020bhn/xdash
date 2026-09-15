@@ -7,7 +7,7 @@
    gesture that must never mis-fire.
    ========================================================================== */
 
-import { h, icon } from "./dom.js";
+import { h, icon, haptic, burst } from "./dom.js";
 import { state, isStarred, isViewed, toggleSelected, markStarred, getProgress } from "../core/state.js";
 import { post } from "../core/query.js";
 import { mediaBox, avatar, fmtCount } from "./media.js";
@@ -46,12 +46,30 @@ export function tile(item, list, { eager = false, index } = {}) {
 
   el.append(media, meta);
 
-  el.addEventListener("click", () => {
+  /* Touch long-press enters selection mode, the way every gallery does.
+     The synthetic contextmenu some browsers fire afterwards is swallowed. */
+  let lpTimer = 0, lpAt = 0;
+  el.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "mouse" || state.ui.selecting) return;
+    clearTimeout(lpTimer);
+    lpTimer = setTimeout(() => {
+      lpAt = Date.now();
+      toggleSelected(item.id);
+      paint(el, item);
+      haptic(18);
+    }, 480);
+  });
+  for (const t of ["pointerup", "pointercancel", "pointermove"]) {
+    el.addEventListener(t, () => clearTimeout(lpTimer), { passive: true });
+  }
+  el.addEventListener("click", (e) => {
+    if (Date.now() - lpAt < 900) { e.preventDefault(); e.stopPropagation(); lpAt = 0; return; }
     if (state.ui.selecting) { toggleSelected(item.id); paint(el, item); return; }
     import("../viewer.js").then(({ openViewer }) => openViewer(list, idx));
   });
   el.addEventListener("contextmenu", (e) => {
     e.preventDefault();
+    if (Date.now() - lpAt < 900) return;
     toggleSelected(item.id);
     paint(el, item);
   });
@@ -87,6 +105,10 @@ function starBtn(item) {
       const on = markStarred(item.id);
       e.currentTarget.classList.toggle("is-on", on);
       e.currentTarget.replaceChildren(icon(on ? "starFill" : "star", 16));
+      if (on) {
+        haptic(10);
+        burst(e.currentTarget.closest(".tile__media"));
+      }
     },
   }, icon(isStarred(item.id) ? "starFill" : "star", 16));
 }

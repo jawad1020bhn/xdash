@@ -220,6 +220,8 @@ ok("creators row renders with at least three creators", q(".home .creator") >= 3
 ok("footer renders four stats", q(".home__foot .stat") === 4, `${q(".home__foot .stat")} stats`);
 ok("footer CTA opens the library",
   /Open the full library/.test(d.querySelector(".home__foot .btn")?.textContent || ""));
+ok("home sections reveal on scroll", d.documentElement.classList.contains("has-rv") && q(".home .reveal.is-in") >= 6,
+  `${q(".home .reveal.is-in")} revealed`);
 ok("home is media-first: no KPI cards, no charts", q(".home .kpi") === 0 && q(".home .chart") === 0);
 ok("chips and infinite grid are gone from Home",
   q(".home__chips") === 0 && q(".home .grid") === 0);
@@ -336,6 +338,16 @@ search.dispatchEvent(new window.Event("input", { bubbles: true }));
 await new Promise((r) => setTimeout(r, 900));
 const afterCount = d.querySelector(".lib__count")?.textContent || "";
 ok("search narrows the result count", /of/.test(afterCount), afterCount);
+ok("library count is announced politely", d.querySelector(".lib__count")?.getAttribute("aria-live") === "polite");
+const roving = [...d.querySelectorAll(".lib .grid .tile")].filter((t) => t.tabIndex === 0);
+ok("grid exposes one tab stop (roving tabindex)", roving.length === 1, `${roving.length} tabbable`);
+ok("grid tiles expose their set position",
+  q(".lib .grid .tile[aria-posinset]") > 0 && q(".lib .grid .tile[aria-setsize]") > 0);
+const tiles0 = [...d.querySelectorAll(".lib .grid .tile")];
+tiles0[0]?.dispatchEvent(new window.KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+await new Promise((r) => setTimeout(r, 300));
+ok("arrow keys travel the grid", d.activeElement?.classList?.contains("tile") && d.activeElement !== tiles0[0],
+  d.activeElement?.dataset?.id || "(no focus move)");
 
 /* ------------------------------------------------- watch + palette ------- */
 
@@ -356,6 +368,17 @@ fitBtn?.dispatchEvent(new window.Event("click", { bubbles: true }));
 ok("fit toggle switches to whole-frame (contain)", watchEl.dataset.fit === "contain", watchEl.dataset.fit);
 fitBtn?.dispatchEvent(new window.Event("click", { bubbles: true }));
 ok("fit toggles back to cover", watchEl.dataset.fit === "cover", watchEl.dataset.fit);
+const muteBtn = [...d.querySelectorAll(".watch__top .icon-btn")].find((b) => /mute/i.test(b.getAttribute("aria-label") || ""));
+ok("watch has a mute toggle", !!muteBtn, muteBtn?.getAttribute("aria-label") || "(missing)");
+const mutedBefore = state.prefs.startMuted;
+muteBtn?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+ok("mute toggle flips feed audio", state.prefs.startMuted !== mutedBefore);
+const starsBefore = Object.keys(state.library.starred).length;
+const cell0 = d.querySelector(".watch__cell");
+cell0?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+cell0?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await new Promise((r) => setTimeout(r, 100));
+ok("double-tap stars from the feed", Object.keys(state.library.starred).length === starsBefore + 1);
 const cellVideos = [...d.querySelectorAll(".watch__cell video")];
 const ladderVideos = cellVideos.filter((v) => v.querySelectorAll("source").length > 0);
 ok("watch videos render the rendition ladder, not one dead src",
@@ -373,12 +396,24 @@ ok("viewer video carries rendition sources",
   d.querySelectorAll(".vw__stage video source").length >= 1,
   `${d.querySelectorAll(".vw__stage video source").length} sources`);
 ok("viewer defaults to whole-frame (contain)", d.querySelector(".vw").dataset.fit === "contain");
+const slideBtn = [...d.querySelectorAll(".vw__bar .icon-btn")].find((b) => (b.getAttribute("aria-label") || "") === "Slideshow");
+ok("viewer offers a slideshow", !!slideBtn);
+slideBtn?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+await new Promise((r) => setTimeout(r, 120));
+ok("slideshow arms with pressed state", slideBtn?.getAttribute("aria-pressed") === "true");
+slideBtn?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+ok("slideshow disarms on second tap", slideBtn?.getAttribute("aria-pressed") === "false");
 const vwFit = [...d.querySelectorAll(".vw__bar .icon-btn")].find((b) => /crop-to-fill/i.test(b.ariaLabel));
 ok("viewer has a crop/fit toggle", !!vwFit);
 vwFit?.dispatchEvent(new window.Event("click", { bubbles: true }));
 ok("viewer toggles to cover", d.querySelector(".vw").dataset.fit === "cover");
 window.dispatchEvent(new window.KeyboardEvent("keydown", { key: "c", bubbles: true }));
 ok("C key toggles back to contain", d.querySelector(".vw").dataset.fit === "contain");
+const vwStage = d.querySelector(".vw__stage");
+vwStage?.dispatchEvent(new window.MouseEvent("dblclick", { bubbles: true, clientX: 120, clientY: 200 }));
+ok("double-click zooms the frame",
+  /scale\(/.test(vwStage?.querySelector("video, img")?.style.transform || ""),
+  vwStage?.querySelector("video, img")?.style.transform || "(no transform)");
 closeViewer(true);
 await new Promise((r) => setTimeout(r, 200));
 
@@ -386,8 +421,11 @@ await new Promise((r) => setTimeout(r, 200));
 openViewer([{ id: "fake:1", postId: "fake", kind: "video", aspect: 1, poster: "https://example.com/p.jpg", video: null, sources: null, dur: 0 }], 0);
 await new Promise((r) => setTimeout(r, 100));
 ok("poster-only video shows a badge, not a dead player", q(".vw .vid-fallback") === 1);
-closeViewer(true);
-await new Promise((r) => setTimeout(r, 100));
+const swipeStage = d.querySelector(".vw__stage");
+swipeStage?.dispatchEvent(new window.MouseEvent("pointerdown", { bubbles: true, clientX: 60, clientY: 100 }));
+swipeStage?.dispatchEvent(new window.MouseEvent("pointerup", { bubbles: true, clientX: 60, clientY: 260 }));
+await new Promise((r) => setTimeout(r, 400));
+ok("swipe-down dismisses the viewer", !d.querySelector(".vw"));
 
 d.getElementById("openPalette").dispatchEvent(new window.Event("click", { bubbles: true }));
 await new Promise((r) => setTimeout(r, 400));
@@ -402,7 +440,30 @@ if (palInput) {
   window.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
   await new Promise((r) => setTimeout(r, 400));
   ok("escape closes the palette", !d.querySelector(".pal"));
+  d.getElementById("openPalette").dispatchEvent(new window.Event("click", { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 400));
+  const palTxt = d.querySelector(".pal")?.textContent || "";
+  ok("palette remembers recent searches", /Recent/.test(palTxt) && /the/.test(palTxt));
+  ok("palette suggests top creators", /Top creators/.test(palTxt));
+  window.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  await new Promise((r) => setTimeout(r, 400));
 }
+
+/* ------------------------------------------------- manage + actions ----- */
+
+console.log("\n── Manage & item actions (phone) ──");
+const { openManage } = await import(`${ROOT}/src/views/manage.js`);
+openManage();
+await new Promise((r) => setTimeout(r, 400));
+ok("import sheet is a drop target", !!d.querySelector(".sheet .dropzone"));
+window.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+await new Promise((r) => setTimeout(r, 400));
+const { itemActions } = await import(`${ROOT}/src/ui/actions.js`);
+itemActions(feed[0]);
+await new Promise((r) => setTimeout(r, 400));
+ok("item menu offers copy-text", /Copy post text/.test(d.querySelector(".sheet")?.textContent || ""));
+window.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+await new Promise((r) => setTimeout(r, 400));
 
 /* ============================================================ desktop ===== */
 
