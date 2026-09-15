@@ -1,11 +1,12 @@
 /* =============================================================================
-   state — one object, one subscription channel, one place truth lives.
+   state v3 — one object, one subscription channel, one place truth lives.
 
-   Views never hold state; they render a slice and subscribe to changes. The
-   previous product kept 48 persisted preferences, most of which were decisions
-   the product should simply have made. This keeps the ones a person would
-   actually miss.
-   ============================================================================= */
+   Storage keys are unchanged from v1/v2 on purpose (xBookmarks,
+   xLibraryState, xDashboardPrefs): an archive already in this browser, or in
+   the capture extension, opens as-is. That contract is load-bearing.
+
+   Preferences stay short and human. Everything else is a product decision.
+   ========================================================================== */
 
 import { KEYS, getMany, setMany } from "./store.js";
 
@@ -13,24 +14,25 @@ import { KEYS, getMany, setMany } from "./store.js";
 
 export const PREF_DEFAULTS = {
   /* Appearance */
-  themeMode: "system",      // system | dark | light
-  density: "cozy",          // compact | cozy | roomy
-  motion: "auto",           // auto | reduced
+  themeMode: "system",        // system | dark | light
+  density: "cozy",            // compact | cozy | roomy
+  aspect: "4/5",              // tile aspect: 4/5 | 1/1 | 3/4 | 16/10
+  motion: "auto",             // auto | reduced
 
-  /* Playback */
-  autoplay: true,           // play the centred item in Watch
-  startMuted: true,         // a feed that shouts at you is a feed you close
-  loop: true,
+  /* Media */
+  autoplay: true,             // play the centred item in Watch
+  startMuted: true,           // a feed that shouts at you is a feed you close
   rememberProgress: true,
-  defaultSpeed: 1,
+  dimSeen: true,              // dim tiles already opened
+  blurMedia: false,           // privacy blur until tapped
+  safeText: true,             // clamp + soften explicit post text on cards
 
-  /* Library behaviour */
+  /* Library */
   markViewedOnOpen: true,
-  showSeen: true,           // dim tiles you have already opened
-  blurMedia: false,         // privacy blur until tapped
   landing: "home",
+  views: [],                  // saved library views: { name, query }
 
-  /* Access — user-set, replacing the hard-coded password the old app shipped */
+  /* Access — user-set, replacing the hard-coded password v1 shipped */
   pin: null,
 };
 
@@ -53,20 +55,16 @@ export const state = {
   library: { ...LIBRARY_DEFAULTS },
   query: {
     search: "",
-    kind: "all",           // all | video | photo
+    kind: "all",             // all | video | photo
     author: null,
-    sort: "recent",        // recent | oldest | liked | longest | shortest | random
+    sort: "recent",          // recent | oldest | liked | reposted | longest | shortest | random
     unseen: false,
     starred: false,
     includeHidden: false,
   },
-  /* Transient UI, deliberately not persisted. */
   ui: {
-    paletteOpen: false,
-    viewer: { open: false, list: [], index: 0 },
     selecting: false,
     selected: new Set(),
-    busy: null,
     loadMessage: "",
   },
 };
@@ -75,7 +73,6 @@ export const state = {
 
 const listeners = new Set();
 let scheduled = false;
-let lastSnapshot = "";
 
 export function subscribe(fn) {
   listeners.add(fn);
@@ -94,7 +91,6 @@ export function notify() {
   });
 }
 
-/** Replaces state shallowly and schedules one repaint. */
 export function set(patch) {
   Object.assign(state, patch);
   notify();
@@ -105,8 +101,11 @@ export function setQuery(patch) {
   notify();
 }
 
-export function setUI(patch) {
-  Object.assign(state.ui, patch);
+export function resetQuery() {
+  Object.assign(state.query, {
+    search: "", kind: "all", author: null, sort: "recent",
+    unseen: false, starred: false, includeHidden: false,
+  });
   notify();
 }
 
@@ -125,7 +124,7 @@ export function setPrefs(patch) {
 }
 
 export function resetPrefs() {
-  const pin = state.prefs.pin;   // a lock is a decision, not a preference
+  const pin = state.prefs.pin;
   Object.assign(state.prefs, PREF_DEFAULTS, { pin });
   applyPrefs();
   notify();
@@ -136,15 +135,22 @@ export function resetPrefs() {
 export function applyPrefs() {
   const root = document.documentElement;
   const dark = state.prefs.themeMode === "system"
-    ? matchMedia?.("(prefers-color-scheme: dark)").matches ?? true
+    ? matchMedia?.("(prefers-color-scheme: dark)")?.matches ?? true
     : state.prefs.themeMode === "dark";
   root.dataset.theme = dark ? "dark" : "light";
   root.dataset.density = state.prefs.density;
+  root.dataset.aspect = state.prefs.aspect;
   root.dataset.motion = state.prefs.motion === "reduced" ? "reduced" : "full";
   root.dataset.blur = state.prefs.blurMedia ? "on" : "off";
 
-  const meta = document.querySelector('meta[name="theme-color"]:not([media])');
-  if (meta) meta.setAttribute("content", dark ? "#0B0B0E" : "#FBFBFD");
+  const metas = document.querySelectorAll('meta[name="theme-color"]');
+  for (const meta of metas) {
+    const media = meta.getAttribute("media") || "";
+    if (state.prefs.themeMode === "system" && media) continue;   // let the OS decide
+    if (media.includes("dark") && !dark) continue;
+    if (media.includes("light") && dark) continue;
+    meta.setAttribute("content", dark ? "#08080b" : "#f7f6f3");
+  }
 }
 
 /* --------------------------------------------------------------- library -- */
@@ -207,10 +213,9 @@ export async function loadPersisted() {
   state.prefs = { ...PREF_DEFAULTS, ...(data[KEYS.prefs] || {}) };
   state.library = { ...LIBRARY_DEFAULTS, ...(data[KEYS.library] || {}) };
   for (const key of Object.keys(LIBRARY_DEFAULTS)) {
-    if (!state.library[key] || typeof state.library[key] !== "object") {
-      state.library[key] = {};
-    }
+    if (!state.library[key] || typeof state.library[key] !== "object") state.library[key] = {};
   }
+  if (!Array.isArray(state.prefs.views)) state.prefs.views = [];
   applyPrefs();
 }
 
@@ -240,4 +245,18 @@ export function selectAll(ids) {
   state.ui.selected = new Set(ids);
   state.ui.selecting = ids.length > 0;
   notify();
+}
+
+/* -------------------------------------------------------- saved views ----- */
+
+export function saveView(name) {
+  const view = { name, query: { ...state.query } };
+  state.prefs.views = [...state.prefs.views.filter((v) => v.name !== name), view].slice(-8);
+  setPrefs({});
+  return view;
+}
+
+export function deleteView(name) {
+  state.prefs.views = state.prefs.views.filter((v) => v.name !== name);
+  setPrefs({});
 }

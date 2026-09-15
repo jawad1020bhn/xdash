@@ -1,22 +1,49 @@
 {
-  "name": "Archive — your saved X media",
+  "name": "Archive \u2014 X bookmarks dashboard",
   "short_name": "Archive",
-  "description": "A fast, private, offline-first visual archive of everything you saved on X.",
+  "description": "A fast, private, offline-first visual dashboard for everything you saved on X.",
   "id": "/",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "any",
-  "background_color": "#0B0B0E",
-  "theme_color": "#0B0B0E",
+  "background_color": "#08080b",
+  "theme_color": "#08080b",
   "lang": "en",
   "dir": "ltr",
-  "categories": ["productivity", "photo", "social"],
+  "categories": [
+    "productivity",
+    "photo",
+    "social"
+  ],
   "icons": [
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "icons/icon-512.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/maskable-512.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "maskable"
+    }
   ],
   "shortcuts": [
     {
@@ -39,6 +66,9 @@
     }
   ],
   "launch_handler": {
-    "client_mode": ["focus-existing", "auto"]
+    "client_mode": [
+      "focus-existing",
+      "auto"
+    ]
   }
 }

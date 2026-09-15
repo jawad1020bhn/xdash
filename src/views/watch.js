@@ -1,373 +1,197 @@
 /* =============================================================================
-   watch — an immersive vertical feed.
+   watch v3 — the immersive snap feed.
 
-   This is the surface people actually spend time in, so it gets the most care:
+   A vertical scroll-snap column where exactly three cells exist in the DOM at
+   any moment (previous, current, next). The centred cell plays; everything
+   else stays parked. Videos start muted, because a feed that shouts at you is
+   a feed you close.
+   ========================================================================== */
 
-     · scroll-snap paging, so a flick lands on exactly one video
-     · only the centred video plays; neighbours hold a poster, which keeps one
-       socket open instead of five
-     · chrome fades while you watch and returns on any input
-     · the bottom bar is gone entirely — this view is the whole screen
-
-   Slides are windowed to ±2 around the current one. At 745 videos, mounting
-   every slide would mean 745 <video> elements.
-   ============================================================================= */
-
-import { h, icon, clear, reducedMotion, haptic } from "../ui/dom.js";
-import { state, setQuery, markViewed, markStarred, saveProgress, isStarred } from "../core/state.js";
-import { post as postOf, results, reshuffle } from "../core/query.js";
-import { fmtDuration, fmtCount, fmtAgo, avatar, describe } from "../ui/media.js";
-import { toast, emptyState } from "../ui/feedback.js";
-import { openViewer } from "../viewer.js";
-
-const WINDOW = 2;
+import { h, icon, clear, pushEsc } from "../ui/dom.js";
+import { state, setQuery, subscribe, markStarred, isStarred, saveProgress } from "../core/state.js";
+import { results, post as postOf, reshuffle } from "../core/query.js";
+import { avatar, caption, fmtCount, describe } from "../ui/media.js";
+import { emptyState } from "../ui/feedback.js";
+import { navigate } from "../shell.js";
 
 let root = null;
-let track = null;
+let col = null;
+let host = null;
+let cells = new Map();
 let list = [];
-let slides = new Map();
 let current = 0;
-let observer = null;
+let releaseEsc = null;
 let unsub = [];
-let hideTimer = 0;
 
 export function mount(host) {
-  list = results();
+  list = results().slice();
+  root = h("div.watch", { "aria-label": "Immersive feed" });
+  host.append(root);
+
+  /* The archive may still be loading: rebuild the feed the moment it lands. */
+  unsub.push(subscribe(() => {
+    const r = results();
+    if (!list.length && r.length) { teardown(); mount(host); }
+  }));
+
   if (!list.length) {
-    root = h("section.watch");
-    host.append(root);
-    emptyState(root, {
-      icon: "play",
-      title: "Nothing to watch",
-      message: "Your current filters leave no videos. Clear them to fill the feed.",
-      action: { label: "Clear filters", onClick: () => { setQuery({ kind: "all", unseen: false, starred: false, search: "", author: null }); remount(host); } },
-    });
+    const box = h("div", { style: { height: "100dvh", display: "grid", placeItems: "center" } });
+    emptyState(box, { icon: "play", title: "Nothing to watch", message: "Your archive has no media matching this view." });
+    root.append(box);
     return;
   }
 
-  root = h("section.watch", { "aria-label": "Watch feed" });
-  track = h("div.watch__track");
-  root.append(track);
-  host.append(root);
+  col = h("div.watch__col");
+  col.style.height = `${list.length * 100}dvh`;
+  root.addEventListener("scroll", onScroll, { passive: true });
+  releaseEsc = pushEsc(() => navigate("home"));
 
-  buildSlides();
-  observe();
-  wireGestures();
-  wireKeys();
-  chrome();
-  unsub.push(() => {});
+  root.append(topBar(), col);
+  paint(true);
 }
 
-function remount(host) {
-  unmount();
-  mount(host);
-}
-
-export function unmount() {
-  pauseAll();
-  observer?.disconnect();
-  observer = null;
+function teardown() {
+  releaseEsc?.();
+  releaseEsc = null;
   unsub.forEach((fn) => fn());
   unsub = [];
-  slides.clear();
-  document.removeEventListener("keydown", onKey, true);
+  pauseAll();
+  cells.clear();
+  root?.remove();
   root = null;
-  track = null;
+  col = null;
 }
 
-/* ------------------------------------------------------------- slides ---- */
+export function unmount() { teardown(); host = null; }
 
-function buildSlides() {
-  clear(track);
-  slides = new Map();
-  for (let i = 0; i < list.length; i++) {
-    const slide = h("div.watch__slide", { dataset: { index: String(i) } });
-    /* Poster-first: a slide costs one image until it becomes the centred one. */
-    const item = list[i];
-    if (item.poster || item.thumb) {
-      slide.append(h("img.watch__poster", {
-        src: item.poster || item.thumb, alt: "", loading: i < 3 ? "eager" : "lazy",
-        decoding: "async", referrerpolicy: "no-referrer",
-      }));
-    }
-    track.append(slide);
-    slides.set(i, slide);
-  }
-}
+/* ------------------------------------------------------------------ top -- */
 
-function ensureVideo(i) {
-  const slide = slides.get(i);
-  const item = list[i];
-  if (!slide || !item || slide.querySelector("video")) return slide?.querySelector("video");
-
-  const video = h("video.watch__video", {
-    playsinline: true, webkitPlaysInline: true, preload: "auto",
-    crossorigin: "anonymous", "aria-label": describe(item, postOf(item)),
-  });
-  video.muted = state.prefs.startMuted;
-  if (item.poster) video.poster = item.poster;
-  if (item.video) {
-    const src = document.createElement("source");
-    src.src = item.video; src.type = "video/mp4";
-    video.append(src);
-  }
-
-  const saved = state.library.progress[item.id];
-  video.addEventListener("loadedmetadata", () => {
-    if (saved && saved > 2 && saved < video.duration - 3) video.currentTime = saved;
-  }, { once: true });
-
-  video.addEventListener("timeupdate", () => {
-    const bar = slide.querySelector(".watch__progress span");
-    if (bar && video.duration) bar.style.width = `${(video.currentTime / video.duration) * 100}%`;
-    saveProgress(item.id, video.currentTime || 0);
-  });
-  video.addEventListener("ended", () => {
-    if (state.prefs.loop) { video.currentTime = 0; video.play().catch(() => {}); }
-    else goTo(current + 1);
-  });
-  video.addEventListener("error", () => {
-    slide.append(h("div.watch__broken",
-      icon("warning", 22),
-      h("p", { text: "This video would not play." }),
-      h("button.btn.btn--sm", { type: "button", text: "Next", onclick: () => goTo(current + 1) }),
-    ));
-  }, { once: true });
-
-  slide.prepend(video);
-  return video;
-}
-
-function destroyVideo(i) {
-  const slide = slides.get(i);
-  const video = slide?.querySelector("video");
-  if (!video) return;
-  saveProgress(list[i].id, video.currentTime || 0);
-  video.pause();
-  video.removeAttribute("src");
-  video.load?.();
-  video.remove();
-}
-
-function pauseAll(except) {
-  for (const [i, slide] of slides) {
-    if (i === except) continue;
-    const video = slide.querySelector("video");
-    if (video && !video.paused) video.pause();
-  }
-}
-
-/* ---------------------------------------------------------- centring ----- */
-
-function observe() {
-  observer = new IntersectionObserver((entries) => {
-    for (const entry of entries) {
-      if (entry.intersectionRatio < 0.6) continue;
-      const i = Number(entry.target.dataset.index);
-      if (Number.isNaN(i)) continue;
-      activate(i);
-    }
-  }, { root: track, threshold: [0.6, 0.9] });
-
-  for (const slide of slides.values()) observer.observe(slide);
-}
-
-function activate(i) {
-  if (i === current && slides.get(i)?.dataset.active === "true") return;
-  current = i;
-
-  /* Window the DOM: keep ±WINDOW videos, drop the rest. */
-  for (const key of slides.keys()) {
-    if (Math.abs(key - i) > WINDOW) destroyVideo(key);
-    const slide = slides.get(key);
-    slide.dataset.active = Math.abs(key - i) === 0 ? "true" : "false";
-  }
-
-  const slide = slides.get(i);
-  const item = list[i];
-  const p = postOf(item);
-  paintMeta(slide, item, p, i);
-
-  const video = ensureVideo(i);
-  pauseAll(i);
-  if (video && state.prefs.autoplay) {
-    video.play().catch(() => { showTapToPlay(slide); });
-  }
-  markViewed(item.id);
-  revealChrome();
-}
-
-function showTapToPlay(slide) {
-  if (slide.querySelector(".watch__tap")) return;
-  const el = h("button.watch__tap", {
-    type: "button", "aria-label": "Tap to play",
-    onclick: (e) => {
-      const v = slide.querySelector("video");
-      v?.play().catch(() => toast("This browser is blocking autoplay with sound."));
-      e.currentTarget.remove();
-    },
-  }, icon("play", 26));
-  slide.append(el);
-}
-
-function paintMeta(slide, item, p, i) {
-  if (slide.querySelector(".watch__meta")) return;
-
-  const meta = h("div.watch__meta",
-    h("div.watch__progress", h("span")),
-    h("div.watch__who",
-      avatar(p.author_profile_image_url, 36, p.author_name),
-      h("div.watch__who-text",
-        h("b", { text: p.author_name || p.author_username }),
-        h("small", { text: `@${p.author_username} · ${fmtAgo(p.capturedAt)}` }),
-      ),
-    ),
-    p.text ? h("p.watch__text", { text: p.text.slice(0, 180) }) : null,
-    h("div.watch__facts",
-      item.dur ? h("span", {}, icon("clock", 12), fmtDuration(item.dur)) : null,
-      p.like_count_at_capture ? h("span", {}, icon("heart", 12), fmtCount(p.like_count_at_capture)) : null,
-      h("button.watch__fact", {
-        type: "button", text: "Open",
-        onclick: () => openViewer(list, i),
-      }),
-    ),
-  );
-
-  const actions = h("div.watch__actions",
-    h("button.watch__action", {
-      type: "button", "aria-label": "Star",
-      "aria-pressed": isStarred(item.id) ? "true" : "false",
-      onclick: (e) => {
-        const on = markStarred(item.id);
-        e.currentTarget.setAttribute("aria-pressed", on ? "true" : "false");
-        haptic(14);
-      },
-    }, icon("star", 22)),
-    h("button.watch__action", {
-      type: "button", "aria-label": "Mute or unmute",
-      onclick: (e) => {
-        const v = slide.querySelector("video");
-        if (!v) return;
-        v.muted = !v.muted;
-        e.currentTarget.setAttribute("aria-pressed", v.muted ? "true" : "false");
-        e.currentTarget.replaceChildren(icon(v.muted ? "mute" : "volume", 22));
-        haptic(6);
-      },
-    }, icon(state.prefs.startMuted ? "mute" : "volume", 22)),
-    h("button.watch__action", {
-      type: "button", "aria-label": "Full screen",
-      onclick: () => slide.querySelector("video")?.requestFullscreen?.().catch(() => {}),
-    }, icon("fullscreen", 22)),
-    h("button.watch__action", {
-      type: "button", "aria-label": "More actions",
-      onclick: () => import("../ui/actions.js").then((m) => m.openItemActions(item, list, i)),
-    }, icon("more", 22)),
-  );
-
-  slide.append(meta, actions);
-}
-
-/* ------------------------------------------------------------ chrome ----- */
-
-let chromeEl = null;
-function chrome() {
-  chromeEl = h("div.watch__chrome",
-    h("button.icon-btn.watch__exit", {
-      type: "button", "aria-label": "Leave Watch",
-      onclick: () => import("../shell.js").then(({ navigate }) => navigate("home")),
-    }, icon("arrowLeft", 22)),
-    h("span.watch__counter.t-num.t-small"),
+function topBar() {
+  return h("div.watch__top",
+    h("button.icon-btn", { type: "button", "aria-label": "Leave Watch", onclick: () => navigate("home") }, icon("close", 22)),
     h("button.icon-btn", {
       type: "button", "aria-label": "Shuffle the feed",
-      onclick: () => { reshuffle(); remount(root.parentElement); toast("Feed shuffled"); },
+      onclick: () => { reshuffle(); setQuery({ sort: "random" }); },
     }, icon("shuffle", 20)),
+    h("span.watch__idx", { text: `1 / ${list.length}` }),
   );
-  root.append(chromeEl);
-  updateCounter();
 }
 
-function updateCounter() {
-  if (chromeEl) {
-    chromeEl.querySelector(".watch__counter").textContent = `${current + 1} / ${list.length}`;
+/* --------------------------------------------------------------- window -- */
+
+let frame = 0;
+function onScroll() {
+  if (frame) return;
+  frame = requestAnimationFrame(() => { frame = 0; paint(false); });
+}
+
+function paint(reset) {
+  if (!root) return;
+  const vh = window.innerHeight;
+  const idx = Math.max(0, Math.min(list.length - 1, Math.round(root.scrollTop / vh)));
+  if (idx === current && !reset) return;
+  current = idx;
+
+  root.querySelector(".watch__idx")?.replaceChildren(`${idx + 1} / ${list.length}`);
+
+  const wanted = new Set([idx - 1, idx, idx + 1].filter((i) => i >= 0 && i < list.length));
+  for (const [i, cell] of cells) {
+    if (!wanted.has(i)) { pauseCell(cell); cell.remove(); cells.delete(i); }
+  }
+  for (const i of wanted) {
+    let cell = cells.get(i);
+    if (!cell) {
+      cell = buildCell(list[i], i);
+      cells.set(i, cell);
+      col.append(cell);
+    }
+    cell.style.top = `${i * 100}dvh`;
+  }
+  playCurrent();
+}
+
+/* ----------------------------------------------------------------- cell -- */
+
+function buildCell(item, i) {
+  const p = postOf(item);
+  const cell = h("div.watch__cell", { dataset: { i: String(i) } });
+
+  const media = h("div.watch__media");
+  if (item.kind === "photo") {
+    const img = h("img", {
+      src: item.thumb || item.full, alt: describe(item, p),
+      loading: "eager", decoding: "async", referrerpolicy: "no-referrer",
+    });
+    media.append(img);
+  } else {
+    const video = h("video", {
+      playsinline: "", muted: "", loop: "",
+      poster: item.poster || "", src: item.video || "",
+      "aria-label": describe(item, p),
+    });
+    video.addEventListener("timeupdate", () => saveProgress(item.id, video.currentTime));
+    media.append(video);
+    cell.dataset.video = "1";
+  }
+  cell.append(media, h("div.watch__scrim"));
+
+  cell.append(h("div.watch__meta",
+    h("div.watch__who",
+      avatar(p.author_profile_image_url, 32, p.author_name),
+      h("span", { text: `@${p.author_username || "unknown"}` }),
+      h("span", { style: { opacity: .6 }, text: `· ${fmtCount(p.like_count_at_capture || 0)}` , class: "t-num" }),
+    ),
+    caption(p, 140) ? h("p.watch__text", { text: caption(p, 140) }) : null,
+  ));
+
+  const starOn = isStarred(item.id);
+  cell.append(h("div.watch__acts",
+    h("button.watch__act", {
+      type: "button", "aria-label": starOn ? "Remove star" : "Star",
+      class: starOn ? "is-on" : "",
+      onclick: (e) => {
+        const on = markStarred(item.id);
+        e.currentTarget.classList.toggle("is-on", on);
+        e.currentTarget.replaceChildren(icon(on ? "starFill" : "star", 22));
+      },
+    }, icon(starOn ? "starFill" : "star", 22)),
+    h("button.watch__act", {
+      type: "button", "aria-label": "Open in viewer",
+      onclick: () => import("../viewer.js").then(({ openViewer }) => openViewer(list, i)),
+    }, icon("expand", 22)),
+    h("button.watch__act", {
+      type: "button", "aria-label": "More",
+      onclick: () => import("../ui/actions.js").then(({ itemActions }) => itemActions(item)),
+    }, icon("more", 22)),
+  ));
+
+  return cell;
+}
+
+/* -------------------------------------------------------------- playback -- */
+
+function playCurrent() {
+  for (const [i, cell] of cells) {
+    const video = cell.querySelector("video");
+    if (!video) continue;
+    if (i === current && state.prefs.autoplay) {
+      video.muted = state.prefs.startMuted;
+      safePlay(video);
+    } else {
+      video.pause?.();
+    }
   }
 }
 
-function revealChrome() {
-  if (!chromeEl) return;
-  chromeEl.dataset.visible = "true";
-  clearTimeout(hideTimer);
-  hideTimer = setTimeout(() => {
-    const v = slides.get(current)?.querySelector("video");
-    if (v && !v.paused) chromeEl.dataset.visible = "false";
-  }, 2800);
-  updateCounter();
+/** play() is a promise in browsers and undefined in some DOMs. */
+function safePlay(video) {
+  try { video.play?.()?.catch?.(() => {}); } catch { /* no media pipeline */ }
 }
 
-/* ---------------------------------------------------------- gestures ----- */
-
-function wireGestures() {
-  let lastTap = 0;
-  track.addEventListener("pointerup", (e) => {
-    if (e.target.closest("button,a")) return;
-    revealChrome();
-    const now = Date.now();
-    const slide = slides.get(current);
-    const video = slide?.querySelector("video");
-
-    if (now - lastTap < 300) {
-      /* Double tap on the left seeks back, on the right seeks forward; with no
-         video loaded it stars the item instead, which is the other thing people
-         double-tap for. */
-      if (video && video.duration) {
-        const left = e.clientX < window.innerWidth / 2;
-        video.currentTime = Math.max(0, Math.min(video.duration, video.currentTime + (left ? -10 : 10)));
-        flashSeek(slide, left ? -10 : 10);
-      } else if (list[current]) {
-        const on = markStarred(list[current].id, true);
-        if (on) toast("Starred");
-      }
-      lastTap = 0;
-      return;
-    }
-    lastTap = now;
-
-    if (video) {
-      if (video.paused) video.play().catch(() => {}); else video.pause();
-    }
-  }, { passive: true });
+function pauseCell(cell) {
+  try { cell.querySelector("video")?.pause?.(); } catch { /* no media pipeline */ }
 }
 
-function flashSeek(slide, delta) {
-  if (!slide || reducedMotion()) return;
-  const el = h("span.watch__flash", { text: `${delta > 0 ? "+" : ""}${delta}s` });
-  el.style.insetInlineStart = delta > 0 ? "68%" : "18%";
-  slide.append(el);
-  setTimeout(() => el.remove(), 600);
-}
-
-function wireKeys() {
-  document.addEventListener("keydown", onKey, true);
-}
-
-function onKey(e) {
-  const k = e.key;
-  if (k === "ArrowDown" || k === "j" || k === "J") { e.preventDefault(); goTo(current + 1); }
-  else if (k === "ArrowUp" || k === "k" || k === "K") { e.preventDefault(); goTo(current - 1); }
-  else if (k === " ") {
-    e.preventDefault();
-    const v = slides.get(current)?.querySelector("video");
-    if (v) { if (v.paused) v.play().catch(() => {}); else v.pause(); }
-  } else if (k === "m" || k === "M") {
-    const v = slides.get(current)?.querySelector("video");
-    if (v) v.muted = !v.muted;
-  } else if (k === "Escape") {
-    import("../shell.js").then(({ navigate }) => navigate("home"));
-  }
-  revealChrome();
-}
-
-function goTo(i) {
-  if (i < 0 || i >= list.length) return;
-  const slide = slides.get(i);
-  slide?.scrollIntoView({ behavior: reducedMotion() ? "auto" : "smooth", block: "start" });
+function pauseAll() {
+  for (const cell of cells.values()) pauseCell(cell);
 }
