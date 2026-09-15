@@ -44,8 +44,8 @@ export function sizedAvatar(url, variant = "_200x200") {
     `${variant}.$2`);
 }
 
-const MEDIA_FIELDS = ["type", "url", "poster", "mp4", "hls", "aspect", "width",
-  "height", "duration", "position", "alt"];
+const MEDIA_FIELDS = ["type", "url", "poster", "mp4", "mp4_variants", "hls",
+  "aspect", "width", "height", "duration", "position", "alt"];
 
 function projectPost(raw) {
   const post = {};
@@ -63,15 +63,34 @@ function projectMedia(rawMedia, postId, count) {
   const kind = rawMedia.type === "animated_gif" ? "gif" : (rawMedia.type === "video" ? "video" : "photo");
   const width = rawMedia.width || 0;
   const height = rawMedia.height || 0;
+
+  /* The player walks sources best-first: highest-bitrate MP4 first, the
+     smaller renditions as fallbacks for an expired/refused URL, and HLS
+     last (native on Safari, ignored by browsers that cannot play it). */
+  const variants = (Array.isArray(rawMedia.mp4_variants) ? rawMedia.mp4_variants : [])
+    .filter((v) => v && v.url)
+    .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
+  const seen = new Set();
+  const sources = [];
+  for (const v of variants) {
+    if (!seen.has(v.url)) { seen.add(v.url); sources.push({ url: v.url, type: "video/mp4" }); }
+  }
+  if (rawMedia.mp4 && !seen.has(rawMedia.mp4)) {
+    sources.unshift({ url: rawMedia.mp4, type: "video/mp4" });
+  }
+  if (rawMedia.hls) sources.push({ url: rawMedia.hls, type: "application/vnd.apple.mpegurl" });
+
   return {
     id: `${postId}:${rawMedia.position ?? 1}`,
     postId,
     kind,
     // For photos `url` is the image itself; for video `url` is a stand-in
-    // thumbnail, and `mp4` is the stream. Both shapes exist in one export.
+    // thumbnail, and the sources ladder below is the stream.
     thumb: rawMedia.type === "photo" ? rawMedia.url : rawMedia.poster,
     full: rawMedia.type === "photo" ? rawMedia.url : rawMedia.poster,
-    video: rawMedia.mp4 || null,
+    video: rawMedia.mp4 || variants[0]?.url || null,
+    sources: sources.length ? sources : null,
+    hls: rawMedia.hls || null,
     poster: rawMedia.poster || null,
     aspect: rawMedia.aspect > 0 ? rawMedia.aspect : (width && height ? width / height : 1),
     w: width,
@@ -80,6 +99,7 @@ function projectMedia(rawMedia, postId, count) {
     alt: rawMedia.alt || "",
     pos: rawMedia.position ?? 1,
     n: count,
+    loop: kind === "gif",
   };
 }
 

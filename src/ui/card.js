@@ -59,6 +59,17 @@ export function tile(item, list, { eager = false, index } = {}) {
 /* The shared grid builds its tiles through us, without an import cycle. */
 registerTileBuilder((item, list, i) => tile(item, list, { index: i, eager: i < 4 }));
 
+/**
+ * A horizontally scrollable strip of tiles, as used by Home's rails.
+ * `items` doubles as the viewer's swipe list, so swiping inside a rail walks
+ * that rail — not the whole archive.
+ */
+export function rail(items, { label, eager = 2 } = {}) {
+  const strip = h("div.rail", { role: "group", "aria-label": label, tabindex: "0" });
+  items.forEach((item, i) => strip.append(tile(item, items, { eager: i < eager, index: i })));
+  return strip;
+}
+
 function starBtn(item) {
   return h("button.tile__act", {
     type: "button",

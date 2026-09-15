@@ -30,8 +30,11 @@ const POST_FIELDS = [
   "retweeted_by_username", "urls_expanded", "has_links", "type", "state", "source_type",
 ];
 
-const MEDIA_FIELDS = ["type", "url", "poster", "mp4", "aspect", "width",
-  "height", "duration", "position", "alt"];
+/* mp4_variants + hls are the player's fallback ladder: when one rendition
+   is refused or has expired, the browser walks the next source instead of
+   showing a dead player. */
+const MEDIA_FIELDS = ["type", "url", "poster", "mp4", "mp4_variants", "hls",
+  "aspect", "width", "height", "duration", "position", "alt"];
 
 function main() {
   const source = statSync(SRC);

@@ -13,6 +13,12 @@ import { loadIndex } from "./core/data.js";
 import { initShell, navigate, readHash } from "./shell.js";
 import { toast } from "./ui/feedback.js";
 
+/**
+ * The archive has one fixed gate code by owner decision. It stops a
+ * shoulder-surf, not an attacker — the whole archive ships to this browser.
+ */
+export const FIXED_PIN = "2055";
+
 boot();
 
 async function boot() {
@@ -21,8 +27,9 @@ async function boot() {
     await loadPersisted();
     applyPrefs();
 
-    if (state.prefs.pin) {
-      const unlocked = await unlock(state.prefs.pin);
+    /* The fixed-PIN gate always runs — see FIXED_PIN. */
+    {
+      const unlocked = await unlock(FIXED_PIN);
       if (!unlocked) return;
     }
 
@@ -75,7 +82,7 @@ async function loadArchive() {
 
 /* ------------------------------------------------------------------- lock -- */
 
-/** Opt-in, user-chosen, and honest about what a PIN in a browser can do. */
+/** Fixed-code gate (FIXED_PIN); honest about what a browser PIN can do. */
 function unlock(pin) {
   return new Promise((resolve) => {
     const error = h("p", { role: "alert", "aria-live": "assertive", style: { color: "var(--danger)", fontSize: "var(--fs-small)", minHeight: "18px", margin: "6px 0 0" } });

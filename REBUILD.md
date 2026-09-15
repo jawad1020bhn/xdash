@@ -99,7 +99,7 @@ grid must produce ≥4 equal-width columns, Watch must rebuild once data lands,
 and Escape must close the palette.
 
 ```
-36/36 checks passed
+75/75 checks passed
 ```
 
 Visual verification was done in a real headless Chromium (screenshots at
@@ -115,3 +115,50 @@ could not close.
 - The 12-month chart is honest about single-session captures: it plots when
   posts were *originally posted*, and the greeting says "imported … in one go"
   instead of pretending at a 30-day habit.
+
+## 7 · v3.2 — consistent video formats, curated Home, fixed PIN
+
+### v3.2 — one treatment for every video format
+
+Owner report: *"videos size are not all the same, there is different
+format."* The archive mixes 9:16 phone clips, 16:9 landscape, square and
+ultra-wide media, and v3.1 forced every surface toward one shape, which made
+the format mix look broken rather than intentional:
+
+- **Grid cropped every clip to one fixed ratio.** The per-item `--aspect`
+  variable was plumbed but never read; `object-fit: cover` centre-cropped
+  landscape clips into portrait boxes. The windowed grid now packs tiles
+  shortest-column-first (masonry) using each item's real width/height,
+  clamped to 0.5–2.2 so a banner frame cannot eat a column.
+- **Watch forced every cell to `contain`, so formats visibly changed size
+  between swipes.** Watch now defaults to `cover` — every cell is a uniform
+  full screen — with a top-bar toggle (and Settings switch) for `contain`
+  when the whole frame matters more than uniformity. The viewer theatre
+  gets the same toggle (`C`), defaulting to `contain`.
+- **One dead MP4 URL meant a black player.** The projection kept only the
+  top rendition; `mp4_variants` and `hls` existed in the export but were
+  discarded. Every video now ships a best-first source ladder (highest MP4 →
+  smaller MP4s → HLS) the browser walks natively, plus a visible badge for
+  poster-only exports instead of a black frame.
+- Videos resume at saved progress in both surfaces, and the outgoing clip
+  is paused before a viewer step.
+
+### v3.2 continued — curated Home + a fixed gate PIN
+
+- **Home is an edit, not a search surface.** The flat chip row + infinite
+  windowed grid left Home (they live on unchanged in Library). Home now
+  composes: time-aware greeting with archive totals and a "Show unopened"
+  CTA → continue-watching row (when progress exists) → one spotlight (newest
+  unopened, else newest; title flips under privacy blur) → five horizontal
+  rails (Jump back in / Most liked / Long form >3min / Photo stories /
+  Recently saved), each with an "All" button that lands on the Library query
+  reproducing the rail → top creators row → four stats + "Open the full
+  library" CTA. Rails use the standard `tile()` via a new `rail()` export in
+  `src/ui/card.js`; strips bleed to the phone screen edge using the stage's
+  safe-area padding. Full redraws on store change (≤56 rail tiles total).
+- **PIN gate is now always on with the fixed code `2055`.** `src/main.js`
+  exports `FIXED_PIN` and the boot gate runs unconditionally before the shell
+  mounts; wrong codes keep the shake + "That is not the PIN." alert. The
+  Settings Privacy row is informational (no set/change/remove flow); the
+  `pin` pref key and storage contracts are untouched. The check harness
+  enters the gate on every boot, including a wrong-code assertion.

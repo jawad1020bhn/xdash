@@ -1,28 +1,36 @@
 /* =============================================================================
-   grid v3.1 — the windowed media grid, shared by Home and Library.
+   grid v3.2 — the windowed media grid, shared by Home and Library.
 
    1,205 items would be 1,205 DOM subtrees and 1,205 image requests. Instead
    tiles are positioned absolutely inside a box whose height equals the whole
-   list, and only the rows near the viewport exist. Geometry is computed from
-   the container's real width, so holes and mis-sized rows are impossible at
-   any breakpoint.
+   list, and only the tiles near the viewport exist.
+
+   Tiles keep the REAL aspect ratio of their photo or video (the export
+   carries width/height for every item) and are packed shortest-column-first,
+   Pinterest-style. A landscape clip and a portrait clip therefore sit side by
+   side without either being centre-cropped into a stranger's framing — the
+   old fixed-row layout did exactly that. Extreme ratios are clamped so a
+   cinemascope frame cannot eat a whole screen. Geometry is computed from the
+   container's real width, so holes are impossible at any breakpoint.
    ========================================================================== */
 
 import { h, icon, onBreakpoint } from "./dom.js";
+import { itemAspect } from "./media.js";
 
 const OVERSCAN = 2;
-const META_H = 30;   /* the author line under each tile */
+const META_H = 27;    /* author line: 7px top padding + a 20px avatar */
 
 /**
  * createGrid(host, getList, { emptyBuilder, ariaLabel })
  *   → { el, refresh(reset), sync(fn), destroy() }
  *
- * getList() is read at paint time, so the owner only has to call refresh()
- * when its inputs change.
+ * getList() is read at measure/paint time, so the owner only has to call
+ * refresh() when its inputs change.
  */
 export function createGrid(host, getList, { emptyBuilder, ariaLabel = "Archive items" } = {}) {
   let grid = null;
-  let cols = 1, colW = 0, rowH = 0, gap = 10, gridTop = 0, rows = 0;
+  let cols = 1, colW = 0, gap = 10, gridTop = 0;
+  let positions = [];          /* { x, y, h } per list index          */
   let rangeStart = -1, rangeEnd = -1, frame = 0;
   const nodes = new Map();
   const unsubs = [];
@@ -44,15 +52,29 @@ export function createGrid(host, getList, { emptyBuilder, ariaLabel = "Archive i
     const min = parseFloat(cs.getPropertyValue("--tile-min")) || 172;
     gap = parseFloat(cs.getPropertyValue("--gap")) || 10;
     const aspect = (cs.getPropertyValue("--tile-aspect") || "4 / 5").split("/").map(Number);
-    const ratio = (aspect[0] || 4) / (aspect[1] || 5);
+    const fallback = (aspect[0] || 4) / (aspect[1] || 5);
 
+    const list = getList();
     const w = grid.clientWidth || host.clientWidth || 360;
     cols = Math.max(1, Math.floor((w + gap) / (min + gap)));
     colW = (w - gap * (cols - 1)) / cols;
-    rowH = colW / ratio + META_H;
 
-    rows = Math.ceil(getList().length / cols);
-    grid.style.height = `${Math.max(rows * (rowH + gap) - gap, 0)}px`;
+    /* Shortest-column packing: each item drops into whichever column is
+       currently shortest, so the ragged right edge masonry would have in a
+       row layout is shared across every column instead. */
+    const colH = new Array(cols).fill(0);
+    positions = new Array(list.length);
+    for (let i = 0; i < list.length; i++) {
+      let c = 0;
+      for (let k = 1; k < cols; k++) if (colH[k] < colH[c]) c = k;
+      const mediaH = colW / itemAspect(list[i], fallback);
+      const h = mediaH + META_H;
+      positions[i] = { x: c * (colW + gap), y: colH[c], h };
+      colH[c] += h + gap;
+    }
+
+    const total = Math.max(0, ...colH) - gap;
+    grid.style.height = `${Math.max(total, 0)}px`;
     gridTop = grid.getBoundingClientRect().top + window.scrollY;
   }
 
@@ -75,20 +97,32 @@ export function createGrid(host, getList, { emptyBuilder, ariaLabel = "Archive i
     }
     grid.querySelector(".empty")?.remove();
 
+    /* Visibility is per-tile now (columns end at different heights), so a
+       cheap linear scan replaces the old first-row/last-row maths. 1,205
+       float compares is well under a frame. */
     const vh = window.innerHeight;
-    const y = window.scrollY;
-    const firstRow = Math.max(0, Math.floor((y - gridTop) / (rowH + gap)) - OVERSCAN);
-    const lastRow = Math.min(rows - 1, Math.ceil((y + vh - gridTop) / (rowH + gap)) + OVERSCAN);
-    const start = firstRow * cols;
-    const end = Math.min(list.length, (lastRow + 1) * cols);
-
-    if (!reset && start === rangeStart && end === rangeEnd) return;
-    rangeStart = start; rangeEnd = end;
-
+    const top = window.scrollY - gridTop;
+    const bottom = top + vh;
     const wanted = new Set();
-    for (let i = start; i < end; i++) {
+    let first = -1, last = -1;
+    for (let i = 0; i < list.length; i++) {
+      const p = positions[i];
+      if (!p) continue;
+      if (p.y < bottom + OVERSCAN * 320 && p.y + p.h > top - OVERSCAN * 320) {
+        wanted.add(list[i].id);
+        if (first < 0) first = i;
+        last = i;
+      }
+    }
+
+    /* The index band determines the wanted set exactly for a static list,
+       so equal bands between scroll frames mean nothing to do. */
+    if (!reset && first === rangeStart && last === rangeEnd) return;
+    rangeStart = first; rangeEnd = last;
+
+    for (let i = Math.max(0, first); i <= last && i >= 0; i++) {
       const item = list[i];
-      wanted.add(item.id);
+      if (!wanted.has(item.id)) continue;
       let el = nodes.get(item.id);
       if (!el) {
         el = tileFor(item, list, i);
@@ -110,12 +144,11 @@ export function createGrid(host, getList, { emptyBuilder, ariaLabel = "Archive i
   }
 
   function place(el, i) {
-    const row = Math.floor(i / cols);
-    const col = i % cols;
-    el.style.left = `${col * (colW + gap)}px`;
-    el.style.top = `${row * (rowH + gap)}px`;
+    const p = positions[i];
+    if (!p) return;
+    el.style.left = `${p.x}px`;
+    el.style.top = `${p.y}px`;
     el.style.width = `${colW}px`;
-    el.style.height = `${rowH}px`;
   }
 
   function refresh(reset = false) {

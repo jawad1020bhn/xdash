@@ -91,7 +91,7 @@ function installStubs(window, width) {
 
 /* ------------------------------------------------------------- harness --- */
 
-async function run(width, label) {
+async function run(width, label, { wrongFirst = false } = {}) {
   console.log(`\n── ${label} (${width}px) ──`);
 
   const vc = new VirtualConsole();
@@ -132,16 +132,46 @@ async function run(width, label) {
     errors.push(`unhandledrejection: ${String(e.reason?.stack || e.reason).split("\n").slice(0, 3).join(" | ")}`));
 
   const started = Date.now();
-  await import(`${ROOT}/src/main.js?bp=${width}&v=3`);
+  await import(`${ROOT}/src/main.js?bp=${width}&v=${width}`);
+  const gate = await passGate(window, { wrongFirst });
   await new Promise((r) => setTimeout(r, WAIT));
   const elapsed = Date.now() - started;
 
-  return { d: window.document, window, elapsed, q: (s) => window.document.querySelectorAll(s).length };
+  return { d: window.document, window, elapsed, gate, q: (s) => window.document.querySelectorAll(s).length };
+}
+
+/* The app boots behind a fixed-PIN gate (src/main.js FIXED_PIN). Enter it,
+   optionally probing the wrong-PIN path first. */
+async function passGate(window, { wrongFirst = false } = {}) {
+  const d = window.document;
+  let form = null;
+  for (let i = 0; i < 60; i++) {
+    form = d.querySelector(".lock__card");
+    if (form) break;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  const input = d.querySelector(".lock input");
+  if (!form || !input) return { showed: false, gone: false, wrongAlert: "" };
+
+  const shellHiddenBefore = d.getElementById("shell")?.hidden !== false;
+  let wrongAlert = "";
+  if (wrongFirst) {
+    input.value = "0000";
+    form.dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
+    await new Promise((r) => setTimeout(r, 80));
+    wrongAlert = d.querySelector(".lock [role='alert']")?.textContent || "";
+    input.value = "";
+  }
+
+  input.value = "2055";
+  form.dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
+  await new Promise((r) => setTimeout(r, 280));
+  return { showed: true, gone: !d.querySelector(".lock"), wrongAlert, shellHiddenBefore };
 }
 
 /* ============================================================== phone ===== */
 
-const { d, q, window, elapsed } = await run(390, "phone");
+const { d, q, window, elapsed, gate } = await run(390, "phone", { wrongFirst: true });
 
 ok("boot does not fall into the crash surface", d.getElementById("crash").hidden === true);
 ok("the crash surface is display:none, not just [hidden]",
@@ -153,14 +183,59 @@ ok("boot skeleton was removed", !d.getElementById("boot"));
 ok("tab bar has three destinations", q(".tab") === 3, `${q(".tab")} tabs`);
 ok("sidebar has three destinations", q(".side__item") >= 3, `${q(".side__item")} items`);
 
-const chipsTxt = d.querySelector(".home__chips")?.textContent || "";
-ok("home chips carry the real archive size", /1\.2K|1,205|1205/.test(chipsTxt), chipsTxt.replace(/\s+/g, " ").trim().slice(0, 48));
+/* ------------------------------------------------ fixed-PIN gate (2055) -- */
+
+console.log("\n── Fixed PIN gate ──");
+ok("the PIN gate blocks the app at boot", gate.showed && gate.shellHiddenBefore,
+  gate.showed ? `shell hidden=${gate.shellHiddenBefore}` : "gate never appeared");
+ok("a wrong PIN is refused with the alert", /not the PIN/i.test(gate.wrongAlert), gate.wrongAlert || "(no alert)");
+ok("PIN 2055 unlocks the archive", gate.gone && d.getElementById("shell").hidden === false,
+  gate.gone ? "unlocked" : "lock still present");
+
+const { state } = await import(`${ROOT}/src/core/state.js`);
+await new Promise((r) => setTimeout(r, 300));
+
+/* --------------------------------------------------------- curated Home -- */
+
+console.log("\n── Curated Home ──");
+const greetTxt = d.querySelector(".greet")?.textContent || "";
+ok("greeting uses a time-of-day word",
+  /Still up\.|Good morning\.|Good afternoon\.|Good evening\./.test(greetTxt), greetTxt.slice(0, 24));
+ok("greeting carries item and creator totals", /items from/.test(greetTxt) && /creators/.test(greetTxt),
+  greetTxt.replace(/\s+/g, " ").trim().slice(0, 80));
+ok("greeting CTA is present", !!d.querySelector(".greet__cta"));
+ok("spotlight renders exactly once", q(".home .spotlight") === 1, `${q(".home .spotlight")}`);
+
+const railTitles = [...d.querySelectorAll(".home .block__title h2")].map((x) => x.textContent);
+for (const t of ["Jump back in", "Most liked", "Long form", "Photo stories", "Recently saved"]) {
+  ok(`rail “${t}” renders`, railTitles.includes(t));
+}
+const rails = [...d.querySelectorAll(".home .rail")];
+ok("five horizontal rails rendered", rails.length === 5, `${rails.length} rails`);
+ok("every rail carries tiles", rails.every((r) => r.querySelectorAll(".tile").length >= 2),
+  rails.map((r) => r.querySelectorAll(".tile").length).join("/"));
+const railTileCount = rails.reduce((n, r) => n + r.querySelectorAll(".tile").length, 0);
+ok("rails stay a bounded edit, not the full archive", railTileCount > 20 && railTileCount <= 60, `${railTileCount} tiles`);
+ok("creators row renders with at least three creators", q(".home .creator") >= 3, `${q(".home .creator")} creators`);
+ok("footer renders four stats", q(".home__foot .stat") === 4, `${q(".home__foot .stat")} stats`);
+ok("footer CTA opens the library",
+  /Open the full library/.test(d.querySelector(".home__foot .btn")?.textContent || ""));
 ok("home is media-first: no KPI cards, no charts", q(".home .kpi") === 0 && q(".home .chart") === 0);
-ok("home filter chips render", q(".home__chips .chip") >= 4, `${q(".home__chips .chip")} chips`);
-const homeTiles = q(".home .grid .tile");
-ok("home is a windowed media grid", homeTiles > 0 && homeTiles < 200, `${homeTiles} tiles in the DOM for 1,205 items`);
-const homeH = parseFloat(d.querySelector(".home .grid")?.style.height || "0");
-ok("home grid scroll height is honest", homeH > 10_000, `${Math.round(homeH)}px`);
+ok("chips and infinite grid are gone from Home",
+  q(".home__chips") === 0 && q(".home .grid") === 0);
+
+/* Rail “All” must reproduce the rail as a Library query. */
+const allFor = (t) => [...d.querySelectorAll(".block__head")]
+  .find((h) => h.querySelector("h2").textContent === t)?.querySelector(".block__all");
+allFor("Most liked")?.dispatchEvent(new window.Event("click", { bubbles: true }));
+await new Promise((r) => setTimeout(r, 300));
+ok("rail “All” lands in Library", q(".lib") === 1);
+ok("“Most liked” sets the liked sort", state.query.sort === "liked", state.query.sort);
+d.querySelector('.tab[data-route="home"]').dispatchEvent(new window.Event("click", { bubbles: true }));
+await new Promise((r) => setTimeout(r, 400));
+d.querySelector(".home__foot .btn")?.dispatchEvent(new window.Event("click", { bubbles: true }));
+await new Promise((r) => setTimeout(r, 400));
+ok("footer CTA navigates to the full library", q(".lib") === 1);
 
 const imgs = [...d.querySelectorAll("img")];
 ok("every image has alt text", imgs.every((i) => (i.alt || "").trim().length > 0),
@@ -173,6 +248,25 @@ ok("thumbnails request a small rendition",
 const docBytes = d.documentElement.outerHTML.length;
 ok("initial DOM stays small", docBytes < 260_000, `${(docBytes / 1024).toFixed(0)} KB of HTML`);
 ok("booted with data in under 9s", elapsed < WAIT + 1000, `${elapsed}ms`);
+
+/* --------------------------------------------- video formats + masonry --- */
+
+console.log("\n── Video format ladder ──");
+const videos = state.index.media.filter((m) => m.kind !== "photo");
+ok("archive videos are indexed", videos.length > 700, `${videos.length} videos`);
+const noLadder = videos.filter((v) => !Array.isArray(v.sources) || !v.sources.length);
+ok("every video carries a playable source ladder", noLadder.length === 0,
+  noLadder.length ? `${noLadder.length} without sources` : "");
+const hlsLast = videos.filter((v) => {
+  const s = v.sources;
+  const hlsIdx = s.findIndex((x) => /mpegurl/.test(x.type));
+  return hlsIdx >= 0 && hlsIdx !== s.length - 1;
+});
+ok("HLS, when present, is the last-resort source", hlsLast.length === 0, `${hlsLast.length} misplaced`);
+const mp4s = videos.filter((v) => v.sources.some((s) => s.type === "video/mp4"));
+ok("every video offers an MP4 rendition", mp4s.length === videos.length, `${mp4s.length}/${videos.length}`);
+const multi = videos.filter((v) => v.sources.filter((s) => s.type === "video/mp4").length > 1);
+ok("most videos expose multiple MP4 renditions as fallbacks", multi.length > 600, `${multi.length} multi-rendition`);
 
 /* --------------------------------------------- insights (behind settings) -- */
 
@@ -201,6 +295,41 @@ ok("scroll height reflects the whole archive", gridH > 10_000, `${Math.round(gri
 ok("search field present", !!d.querySelector(".lib__bar input"));
 ok("facet chips present", q(".lib__facets .chip") >= 5, `${q(".lib__facets .chip")} chips`);
 
+console.log("\n── Masonry geometry keeps every format honest ──");
+const masonTiles = [...d.querySelectorAll(".lib .grid .tile")];
+const itemById = new Map(state.index.media.map((m) => [m.id, m]));
+const widthsSet = new Set(masonTiles.map((t) => t.style.width));
+ok("masonry tiles share one column width", widthsSet.size === 1, `${[...widthsSet].length} widths`);
+let overlap = 0, aspectMismatch = 0, outOfBounds = 0;
+const gridEl = d.querySelector(".lib .grid");
+const gridW = gridEl.clientWidth || 358;
+const gapV = parseFloat(d.defaultView.getComputedStyle(d.documentElement).getPropertyValue("--gap")) || 10;
+const byCol = new Map();
+for (const t of masonTiles) {
+  const x = parseFloat(t.style.left), y = parseFloat(t.style.top), w = parseFloat(t.style.width);
+  const item = itemById.get(t.dataset.id);
+  /* jsdom has no layout: expected tile height mirrors the packer's maths. */
+  const a = Math.min(2.2, Math.max(0.5, item?.aspect || 0.8));
+  const h = w / a + 27;
+  const col = Math.round(x / (w + gapV));
+  const list = byCol.get(col) || [];
+  list.push({ y, h });
+  byCol.set(col, list);
+  const box = t.querySelector(".tile__media");
+  const cssA = parseFloat(box?.style.getPropertyValue("--aspect") || "0");
+  if (item && cssA && Math.abs(cssA - a) > 0.01) aspectMismatch++;
+  if (x + w > gridW + 1) outOfBounds++;
+}
+for (const list of byCol.values()) {
+  list.sort((a, b) => a.y - b.y);
+  for (let i = 1; i < list.length; i++) {
+    if (list[i].y < list[i - 1].y + list[i - 1].h - 2) overlap++;
+  }
+}
+ok("no two tiles overlap within a column", overlap === 0, `${overlap} overlaps`);
+ok("tiles stay inside the grid width", outOfBounds === 0, `${outOfBounds} overflow`);
+ok("every tile reserves its real (clamped) aspect ratio", aspectMismatch === 0, `${aspectMismatch} mismatches`);
+
 const search = d.querySelector(".lib__bar input");
 search.value = "the";
 search.dispatchEvent(new window.Event("input", { bubbles: true }));
@@ -217,6 +346,48 @@ d.querySelector('.tab[data-route="watch"]').dispatchEvent(new window.Event("clic
 await new Promise((r) => setTimeout(r, 1200));
 ok("watch feed rebuilds once data lands", q(".watch__cell") >= 1, `${q(".watch__cell")} cells`);
 ok("watch carries its own chrome", q(".watch__top") === 1 && q(".watch__act") >= 2);
+
+console.log("\n── Uniform playback: fit + source ladder ──");
+const watchEl = d.querySelector(".watch");
+ok("watch defaults to uniform fill (cover)", watchEl.dataset.fit === "cover", watchEl.dataset.fit);
+const fitBtn = [...d.querySelectorAll(".watch__top .icon-btn")].find((b) => /crop-to-fill/i.test(b.ariaLabel));
+ok("watch has a crop/fit toggle", !!fitBtn);
+fitBtn?.dispatchEvent(new window.Event("click", { bubbles: true }));
+ok("fit toggle switches to whole-frame (contain)", watchEl.dataset.fit === "contain", watchEl.dataset.fit);
+fitBtn?.dispatchEvent(new window.Event("click", { bubbles: true }));
+ok("fit toggles back to cover", watchEl.dataset.fit === "cover", watchEl.dataset.fit);
+const cellVideos = [...d.querySelectorAll(".watch__cell video")];
+const ladderVideos = cellVideos.filter((v) => v.querySelectorAll("source").length > 0);
+ok("watch videos render the rendition ladder, not one dead src",
+  cellVideos.length === 0 || ladderVideos.length === cellVideos.length,
+  `${ladderVideos.length}/${cellVideos.length} with sources`);
+
+/* The theatre on a real video item. */
+const { openViewer, closeViewer } = await import(`${ROOT}/src/viewer.js`);
+const feed = state.index.media;
+const firstVideoIdx = feed.findIndex((m) => m.kind !== "photo");
+openViewer(feed, firstVideoIdx);
+await new Promise((r) => setTimeout(r, 300));
+ok("viewer opens over a video", q(".vw") === 1 && q(".vw__stage video") === 1);
+ok("viewer video carries rendition sources",
+  d.querySelectorAll(".vw__stage video source").length >= 1,
+  `${d.querySelectorAll(".vw__stage video source").length} sources`);
+ok("viewer defaults to whole-frame (contain)", d.querySelector(".vw").dataset.fit === "contain");
+const vwFit = [...d.querySelectorAll(".vw__bar .icon-btn")].find((b) => /crop-to-fill/i.test(b.ariaLabel));
+ok("viewer has a crop/fit toggle", !!vwFit);
+vwFit?.dispatchEvent(new window.Event("click", { bubbles: true }));
+ok("viewer toggles to cover", d.querySelector(".vw").dataset.fit === "cover");
+window.dispatchEvent(new window.KeyboardEvent("keydown", { key: "c", bubbles: true }));
+ok("C key toggles back to contain", d.querySelector(".vw").dataset.fit === "contain");
+closeViewer(true);
+await new Promise((r) => setTimeout(r, 200));
+
+/* A poster-only export must not render as a black player. */
+openViewer([{ id: "fake:1", postId: "fake", kind: "video", aspect: 1, poster: "https://example.com/p.jpg", video: null, sources: null, dur: 0 }], 0);
+await new Promise((r) => setTimeout(r, 100));
+ok("poster-only video shows a badge, not a dead player", q(".vw .vid-fallback") === 1);
+closeViewer(true);
+await new Promise((r) => setTimeout(r, 100));
 
 d.getElementById("openPalette").dispatchEvent(new window.Event("click", { bubbles: true }));
 await new Promise((r) => setTimeout(r, 400));
