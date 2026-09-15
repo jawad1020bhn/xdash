@@ -7,7 +7,7 @@
 
 import { h, icon } from "../ui/dom.js";
 import { state, setPrefs, resetPrefs } from "../core/state.js";
-import { overlay, toast, confirmDialog, promptDialog } from "../ui/feedback.js";
+import { overlay, toast, confirmDialog } from "../ui/feedback.js";
 import { backendName, estimateBytes } from "../core/store.js";
 import { fmtBytes } from "../ui/media.js";
 import { stats } from "../core/query.js";
@@ -45,13 +45,12 @@ export function openSettings() {
 
   /* ------------------------------------------------------------- privacy -- */
   c.append(group("Privacy"));
-  c.append(h("button.row", { type: "button", onclick: () => pinFlow(sheet) },
+  c.append(h("div.row", { "aria-label": "PIN lock" },
     h("span.row__icon.hue", { style: { "--hue": "var(--hue-a)" } }, icon("lock", 18)),
     h("span.row__text",
-      h("b", { text: state.prefs.pin ? "Change or remove PIN" : "Set a PIN" }),
-      h("small", { text: state.prefs.pin ? "Currently protecting this archive" : "Stops a shoulder-surf, not an attacker — everything ships to this browser" }),
+      h("b", { text: "PIN lock" }),
+      h("small", { text: "The archive always opens with the fixed PIN 2055 — a shoulder-surf guard, not encryption" }),
     ),
-    icon("chevronRight", 16),
   ));
 
   /* ------------------------------------------------------------ insights -- */
@@ -133,21 +132,6 @@ function rowSeg(label, hint, options, read, onPick, labels) {
     h("span.row__text", h("b", { text: label }), h("small", { text: hint })),
     h("span.row__end", { style: { width: "min(240px, 46%)" } }, seg),
   );
-}
-
-async function pinFlow(sheet) {
-  if (state.prefs.pin) {
-    const choice = await promptDialog({ title: "PIN", label: "New PIN (blank to remove)", placeholder: "Leave blank to remove" });
-    if (choice === null) return;
-    setPrefs({ pin: choice || null });
-    toast(choice ? "PIN updated" : "PIN removed");
-    return;
-  }
-  const pin = await promptDialog({ title: "Set a PIN", label: "Choose a PIN", placeholder: "4–12 characters" });
-  if (!pin) return;
-  setPrefs({ pin });
-  toast("PIN set — you will be asked next launch");
-  void sheet;
 }
 
 function storageLine(c) {

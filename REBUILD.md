@@ -99,7 +99,7 @@ grid must produce ≥4 equal-width columns, Watch must rebuild once data lands,
 and Escape must close the palette.
 
 ```
-57/57 checks passed
+75/75 checks passed
 ```
 
 Visual verification was done in a real headless Chromium (screenshots at
@@ -116,7 +116,9 @@ could not close.
   posts were *originally posted*, and the greeting says "imported … in one go"
   instead of pretending at a 30-day habit.
 
-## 7 · v3.2 — one treatment for every video format
+## 7 · v3.2 — consistent video formats, curated Home, fixed PIN
+
+### v3.2 — one treatment for every video format
 
 Owner report: *"videos size are not all the same, there is different
 format."* The archive mixes 9:16 phone clips, 16:9 landscape, square and
@@ -140,3 +142,23 @@ the format mix look broken rather than intentional:
   poster-only exports instead of a black frame.
 - Videos resume at saved progress in both surfaces, and the outgoing clip
   is paused before a viewer step.
+
+### v3.2 continued — curated Home + a fixed gate PIN
+
+- **Home is an edit, not a search surface.** The flat chip row + infinite
+  windowed grid left Home (they live on unchanged in Library). Home now
+  composes: time-aware greeting with archive totals and a "Show unopened"
+  CTA → continue-watching row (when progress exists) → one spotlight (newest
+  unopened, else newest; title flips under privacy blur) → five horizontal
+  rails (Jump back in / Most liked / Long form >3min / Photo stories /
+  Recently saved), each with an "All" button that lands on the Library query
+  reproducing the rail → top creators row → four stats + "Open the full
+  library" CTA. Rails use the standard `tile()` via a new `rail()` export in
+  `src/ui/card.js`; strips bleed to the phone screen edge using the stage's
+  safe-area padding. Full redraws on store change (≤56 rail tiles total).
+- **PIN gate is now always on with the fixed code `2055`.** `src/main.js`
+  exports `FIXED_PIN` and the boot gate runs unconditionally before the shell
+  mounts; wrong codes keep the shake + "That is not the PIN." alert. The
+  Settings Privacy row is informational (no set/change/remove flow); the
+  `pin` pref key and storage contracts are untouched. The check harness
+  enters the gate on every boot, including a wrong-code assertion.
