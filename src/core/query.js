@@ -1,11 +1,10 @@
 /* =============================================================================
-   query — filtering, sorting and search over the projected index.
+   query v3 — filtering, sorting, search and headline stats over the index.
 
-   Runs over 1,205 media items. That is small enough for a straight pass, so
-   there is deliberately no index, no web worker and no incremental machinery
-   here: one filter, one sort, memoised on a signature that changes only when
-   the inputs do.
-   ============================================================================= */
+   1,205 items is small enough for a straight pass: one filter, one sort,
+   memoised on a signature that changes only when the inputs do. No index, no
+   worker, no machinery.
+   ========================================================================== */
 
 import { state, isViewed, isStarred, isArchived, isHidden } from "./state.js";
 
@@ -14,28 +13,29 @@ const SORTS = {
   oldest:   (a, b) => post(a).createdAt - post(b).createdAt || a.pos - b.pos,
   liked:    (a, b) => (post(b).like_count_at_capture || 0) - (post(a).like_count_at_capture || 0),
   reposted: (a, b) => (post(b).retweet_count_at_capture || 0) - (post(a).retweet_count_at_capture || 0),
-  viewed:   (a, b) => (post(b).view_count_at_capture || 0) - (post(a).view_count_at_capture || 0),
   longest:  (a, b) => b.dur - a.dur,
   shortest: (a, b) => (a.dur || 1e9) - (b.dur || 1e9),
 };
 
 export const SORT_LABELS = {
   recent: "Recently saved",
-  oldest: "Oldest posts",
+  oldest: "Oldest first",
   liked: "Most liked",
   reposted: "Most reposted",
-  viewed: "Most viewed",
-  longest: "Longest video",
-  shortest: "Shortest video",
+  longest: "Longest",
+  shortest: "Shortest",
   random: "Shuffled",
 };
+
+export const SORT_IDS = Object.keys(SORT_LABELS);
+
+const EMPTY_POST = { capturedAt: 0, createdAt: 0, text: "", author_username: "", like_count_at_capture: 0 };
 
 export function post(media) {
   return state.index.posts.get(media.postId) || EMPTY_POST;
 }
-const EMPTY_POST = { capturedAt: 0, createdAt: 0, text: "", author_username: "" };
 
-/* Fisher–Yates with a session-stable seed, so a shuffle does not reshuffle
+/* Fisher–Yates with a session-stable seed, so "shuffled" does not reshuffle
    every time something unrelated repaints. */
 let shuffleSeed = Math.random() * 1e9;
 export function reshuffle() { shuffleSeed = Math.random() * 1e9; memoKey = ""; }
@@ -51,13 +51,11 @@ function seededShuffle(list) {
   return out;
 }
 
-/* -------------------------------------------------------------- search -- */
+/* -------------------------------------------------------------- search ---- */
 
 /**
- * Terms are ANDed; a leading "-" negates. Quoted phrases match literally.
- * Deliberately substring-based rather than fuzzy: for an archive you already
- * own, people remember exact words, and fuzzy matching returns confident
- * nonsense.
+ * Terms are ANDed; a leading "-" negates; quoted phrases match literally.
+ * Substring, not fuzzy: for an archive you own, people remember exact words.
  */
 export function parseSearch(input) {
   const tokens = [];
@@ -71,15 +69,14 @@ export function parseSearch(input) {
   return tokens;
 }
 
-function matchesTokens(post_, tokens) {
+function matchesTokens(p, tokens) {
   for (const { term, negate } of tokens) {
-    const hit = post_.haystack.includes(term);
-    if (hit === negate) return false;
+    if (p.haystack.includes(term) === negate) return false;
   }
   return true;
 }
 
-/* -------------------------------------------------------------- results -- */
+/* -------------------------------------------------------------- results --- */
 
 let memoKey = "";
 let memoValue = [];
@@ -108,36 +105,23 @@ export function results() {
   for (const item of state.index.media) {
     if (!q.includeHidden && isHidden(item.id)) continue;
     if (isArchived(item.postId)) continue;
-    if (q.kind !== "all") {
-      if (q.kind === "photo" && item.kind !== "photo") continue;
-      if (q.kind === "video" && item.kind === "photo") continue;
-    }
+    if (q.kind === "photo" && item.kind !== "photo") continue;
+    if (q.kind === "video" && item.kind === "photo") continue;
     if (q.unseen && isViewed(item.id)) continue;
     if (q.starred && !isStarred(item.id)) continue;
-    if (q.author) {
-      const p = post(item);
-      if (p.author_username !== q.author) continue;
-    }
-    if (tokens) {
-      const p = post(item);
-      if (!p.haystack || !matchesTokens(p, tokens)) continue;
-    }
+    if (q.author && post(item).author_username !== q.author) continue;
+    if (tokens && !matchesTokens(post(item), tokens)) continue;
     out.push(item);
   }
 
-  if (q.sort === "random") memoValue = seededShuffle(out);
-  else out.sort(SORTS[q.sort] || SORTS.recent), memoValue = out;
-
+  memoValue = q.sort === "random" ? seededShuffle(out) : out.sort(SORTS[q.sort] || SORTS.recent);
   memoKey = key;
   return memoValue;
 }
 
-/** The same list narrowed to what a grid actually needs to lay out. */
-export function count() {
-  return results().length;
-}
+export const count = () => results().length;
 
-/* ---------------------------------------------------------------- stats -- */
+/* ---------------------------------------------------------------- stats --- */
 
 let statsMemoKey = "";
 let statsValue = null;
@@ -152,39 +136,51 @@ export function stats() {
   if (key === statsMemoKey) return statsValue;
 
   const media = state.index.media;
-  let photos = 0, videos = 0, seconds = 0, seen = 0;
+  let photos = 0, videos = 0, gifs = 0, seconds = 0, seen = 0, likes = 0;
+  const seenPosts = new Set();
   for (const item of media) {
     if (item.kind === "photo") photos++;
+    else if (item.kind === "gif") gifs++;
     else { videos++; seconds += item.dur || 0; }
-    if (isViewed(item.id)) seen++;
+    if (isViewed(item.id)) { seen++; seenPosts.add(item.postId); }
+    likes += post(item).like_count_at_capture || 0;
   }
   statsValue = {
     posts: state.index.posts.size,
     media: media.length,
     photos,
     videos,
+    gifs,
     creators: state.index.authors.length,
     seen,
     unseen: media.length - seen,
     starred: Object.keys(state.library.starred).length,
     watchTime: seconds,
     pctSeen: media.length ? Math.round((seen / media.length) * 100) : 0,
+    likes,
   };
   statsMemoKey = key;
   return statsValue;
 }
 
-/** Authors ranked by how much of the archive they account for. */
+/** Authors ranked by share of the archive. */
 export function topAuthors(limit = 24) {
-  return state.index.authors
-    .slice()
-    .sort((a, b) => b.count - a.count)
-    .slice(0, limit);
+  return state.index.authors.slice().sort((a, b) => b.count - a.count).slice(0, limit);
 }
 
-/** Media by a single author, newest first. */
+export function authorOf(username) {
+  return state.index.authors.find((a) => a.username === username) || null;
+}
+
+/** Media by one author, newest first. */
 export function byAuthor(username) {
   return state.index.media
     .filter((m) => post(m).author_username === username)
     .sort(SORTS.recent);
 }
+
+/** The first post of a media item's parent, for captions. */
+export const textOf = (media, len = 180) => {
+  const t = (post(media).text || "").replace(/\s+/g, " ").trim();
+  return t.length > len ? `${t.slice(0, len)}…` : t;
+};

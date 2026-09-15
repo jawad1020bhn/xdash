@@ -1,275 +1,117 @@
-# Archive — frontend rebuild
+# Archive v3 — "Pro Dash"
 
-A from-scratch replacement of the dashboard frontend. Same data contract, same
-storage keys, no build step. Everything else is new.
+A from-scratch rebuild of the dashboard on top of the one thing v2 got right:
+the data contract. Same `POSTS.json` schema, same storage keys
+(`xBookmarks`, `xLibraryState`, `xDashboardPrefs`), same build-free ES modules,
+same derived service-worker precache. Everything a user sees is new.
 
-The previous implementation is in git history at `07d7149` (`js/`, `css/`, `m3e/`).
-
----
-
-## 1 · Diagnosis
-
-Findings below were measured against the previous build, not inferred from
-reading it.
-
-### First load moved 17.71 MB, 93% of it dead weight
-
-`POSTS.json` is 17.71 MB. Of that, **6.87 MB (38.8%) is a `raw` field** holding
-verbatim Twitter API payloads. Grepping the old codebase for `.raw` returns two
-hits, both a local variable named `raw` in `js/library.js` — nothing ever read
-the field. The UI needs roughly 1.2 MB.
-
-The file was `fetch`ed and `JSON.parse`d on the main thread during boot, before
-anything painted: `body.is-booting` sets `.app, .navbar { opacity: 0 }`
-(`css/foundation.css:203`), and that class was only removed at the end of a
-successful boot.
-
-### A blank page was the error handler
-
-`app.boot()` was called with no `.catch()` (`js/app.js:923`) and `boot()` had no
-`try`. Combined with the opacity rule above, any throw anywhere in a long async
-chain produced a permanently white page with no message, no stack and no retry.
-
-I confirmed this by running the old app in a DOM without `matchMedia`: every
-global loaded, `boot()` never completed, and the document stayed empty with zero
-errors surfaced.
-
-### A hard-coded password blocked the product
-
-`js/lock.js` contained `const PASSWORD = "2055"` in plaintext and suspended
-`boot()` until it was entered. Its own comment conceded it is not security. It
-turned every first visit into a dead end, and the manifest's shortcuts landed on
-a lock screen.
-
-### Two responsive systems, one of which did nothing
-
-- JS: `XBMobile.isCompact()` = `max-width: 719px` (`js/mobile.js:19`); `js/card.js:24` used the same 719.
-- M3E `bindWindowClass()` wrote `data-window-class` using 599/839/1199/1599 (`m3e/interactions.js:346`), recomputed on every resize.
-- **Zero CSS rules consumed `data-window-class`.** A resize handler ran to set an attribute nothing read, while the real breakpoints were eight hardcoded values in CSS: 379, 599, 719, 899, 1023, 1199, 1439, 1440.
-
-### Mobile was an override sheet on a desktop base
-
-`css/mobile.css` states its own approach in line 5: *"An ADAPTATION layer, not a
-rewrite. The desktop system above is untouched."* Nine stylesheets, 6,158 lines,
-where every mobile fix had to win a cascade against four others. `html, body {
-overflow-x: clip }` was used to hide overflow rather than fix it.
-
-### Touch targets under 44px
-
-`.card__pick` 34×34 (the multi-select checkbox on a media grid — the highest
-mis-tap risk in the app), `.search__chips .pill` 40px, `.seg__item` 40px,
-`.discover__refresh` 42px, `.hero__actions .ctl--accent` 42px.
-
-### Images asked for full-size renditions
-
-Every photo URL shipped bare — no `?name=` parameter and no `srcset`. A 170px
-thumbnail slot downloaded a ~1200px image. Measured across the rendered grid:
-`srcset: 0`, sized URLs: 0.
-
-### No alt text anywhere
-
-88 `<img>` elements in the initial render, 0 with a non-empty `alt`.
-
-### 48 persisted preferences
-
-Roughly 22 exposed across six settings sections, most of them decisions the
-product should simply have made.
-
-### The service worker precached the wrong files
-
-`index.html` requested `?v=16`; `sw.js` precached `?v=14`. Forty entries, none of
-them a URL the app asked for. Its own comment admitted the coupling: *"Keep in
-sync with the HTML asset list (a build step would own this)."*
-
-### The design system fought itself
-
-`css/foundation.css` says it outright: *"theme.js writes `--md-sys-color-*` as
-INLINE styles on `<html>`, so they cannot be overridden from a stylesheet.
-Rather than fight it, the product palette lives in its own namespace."* Two
-colour systems with one accent borrowed across the seam.
+Direction, chosen with the owner: **bold media-first** visuals, **hybrid
+Home** (analytics band + curated rails), **mobile-first**, and a **full
+rewrite** rather than a presentation-layer patch.
 
 ---
 
-## 2 · What "better" meant here
+## 1 · What was wrong with v2 (measured, with screenshots)
 
-This is a personal media archive: 978 posts, 1,205 media items, 529 creators,
-55% of them portrait or taller. One person, on a phone, looking for something
-they half-remember saving.
+| # | Finding | Proof |
+|---|---|---|
+| 1 | **A fake crash card painted at the bottom of every screen.** `.crash { display: grid }` overrode the `hidden` attribute, so "Something went wrong while opening your archive" plus a destructive-looking *Reset local data* button rendered under the footer on every route, phone and desktop. | v2 full-page captures |
+| 2 | **The Library grid was broken above ~1080px.** The windowed grid mis-sized rows: ragged holes, one tile spanning two rows, a phantom horizontal scrollbar mid-page. | v2 desktop capture |
+| 3 | **Desktop was a stretched phone app.** Hero locked to a narrow column, rails bleeding off-canvas, ~40% dead space at 1440px. | v2 desktop capture |
+| 4 | **Wireframe-grade type.** One system face at small sizes, 11px meta everywhere, no display voice, no hierarchy; the stat strip was a gray row. | v2 captures |
+| 5 | **Cards leaked raw post text** — unclamped, explicit, URLs as titles. | v2 captures |
+| 6 | **No depth, no brand.** Flat single accent, light theme a gray inversion, 16px avatars. | `tokens.css` (v2) |
+| 7 | **A "dashboard" with zero analytics.** No timeline, no mix, no leaderboard. | `views/home.js` (v2) |
 
-So the standard was not "more features". It was:
+v2's engineering was kept where it earned it: the slim projection +
+IndexedDB fingerprint cache, windowing as a concept, the overlay/toast
+primitives' intent, and the jsdom smoke-test philosophy.
 
-1. **The media is the product.** Chrome earns its pixels or loses them.
-2. **Predictable beats clever.** The old Discover generated up to eleven
-   algorithmic rails and rotated them on every load, so the page you returned to
-   was never the page you left. Home is now the same sections, same order, every
-   time.
-3. **Fast on the device that matters.** A mid-range phone on a real connection.
-4. **One way to do each thing.** Four surfaces for "find something" became one.
+## 2 · The v3 design language
 
----
+- **Canvas stays quiet, content stays loud.** Near-black `#08080b` (or warm
+  paper `#f7f6f3`) with colour existing in exactly two places: the media, and
+  the colour-blocking that labels a section. Every hue comes from six tokens
+  (`--hue-a…f`); a section sets `--hue` and inherits a tint/chip/line family
+  from the `.hue` mixin.
+- **Brand ramp** magenta `#ff3d81` → violet `#7c5cff`, used for the mark, the
+  active-tab indicator, chart strokes and primary actions. No glows: the v3.0
+  canvas wash, coloured button shadows and gradient type were removed in v3.1
+  at the owner's request — surfaces are flat, elevation comes from one hairline
+  and one soft shadow.
+- **Display voice without a download:** the platform UI face at weight 850 with
+  `-0.035em` tracking, tabular numerals on every stat.
+- **Depth:** layered surfaces + a 1px top-light (`--hi`) on every raised panel,
+  so dark mode reads as material, not void.
+- **Motion:** three durations, two curves, one spring; count-ups on KPIs,
+  draw-in on chart strokes, grow-in on meters, snap on rails.
 
-## 3 · Key decisions
+## 3 · What each surface is now
 
-### 93% smaller first load
+- **Home** — a media-first front page, not a stats board: an optional
+  continue-watching row, a sticky filter chip row (Recent / Unopened / Videos /
+  Photos / Starred, each with its real count), and the archive itself in one
+  windowed grid — the same surface language as the feeds it archives.
+- **Insights** — the counts and charts (headline numbers, 12-month activity,
+  media mix, top creators) live one tap deep behind Settings, because this is
+  a player first and a dashboard never.
+- **Library** — facet chips (kind / unseen / starred), sort sheet, saved views,
+  density + tile-shape prefs, and a windowed grid whose geometry is computed
+  from the container's real width: tiles are absolutely positioned inside a box
+  whose height equals the whole archive, so holes are impossible at any
+  breakpoint. 14 tiles in the DOM for 1,205 items on a phone, 49 at 1440px.
+- **Watch** — immersive snap feed, three cells alive at once, centred cell
+  plays (muted), sticky chrome, action rail.
+- **Viewer** — theatre with filmstrip of the post's siblings, swipe + keys,
+  star/mute/fullscreen, progress persistence.
+- **Palette** (`/`, `⌘K`) — fuzzy subsequence scoring over commands, creators
+  and items, with match highlighting and full keyboard navigation.
+- **Settings** — eleven human preferences: theme, density, tile shape, motion,
+  autoplay, mute, progress, seen-dimming, privacy blur, PIN, landing.
 
-`npm run build` projects `POSTS.json` into `data/posts.slim.json`, dropping
-`raw` and every other unused field.
+## 4 · Performance
 
-```
-POSTS.json           17.71 MB
-data/posts.slim.json  1.22 MB  (93.1% smaller)
-```
-
-`POSTS.json` is left exactly as the capture extension wrote it — this is a
-read-side projection, not a migration. The app prefers the slim file and falls
-back to `POSTS.json` automatically, so deleting the output is always safe.
-
-The projection is then cached in IndexedDB, keyed on the source file's HTTP
-fingerprint (`Last-Modified` + `Content-Length` + `ETag`, read with a `HEAD`
-request). An unchanged file costs one `HEAD` and **zero JSON parsing** on reload.
-
-### Mobile-first, with two breakpoints shared by CSS and JS
-
-The base styles are the phone. `min-width` blocks only add. There are exactly two
-breakpoints — **720px and 1080px** — and `src/ui/dom.js` reads the same two
-numbers, so JS and CSS cannot disagree. One `data-bp` attribute replaces the
-dead `data-window-class`.
-
-`--tap: 44px` is a token. Nothing interactive goes below it.
-
-### The grid is windowed
-
-1,205 items would be 1,205 DOM subtrees and 1,205 image requests. Library renders
-only rows near the viewport plus two rows of overscan, and keeps the scroll
-height honest with a sized viewport. Measured in the test: **16 tiles in the DOM
-for 1,205 items**, with 157,232px of scroll height behind them.
-
-Tiles are a uniform aspect ratio deliberately. Masonry photographs better and
-makes both windowing and scanning worse.
-
-### One command surface
-
-The command palette (`/`, `⌘K`, or the search button on a phone, where it becomes
-a sheet) covers posts, creators and commands. It replaces the search dropdown,
-the filter sheet, the "More" sheet, and two navigation destinations.
-
-Three destinations remain: **Home, Library, Watch**.
-
-### Media handling
-
-- Aspect-ratio boxes are reserved before the image arrives, so a 1,200-item grid never reflows as it fills in.
-- Thumbnails request `?name=small` / `?name=medium` via `srcset`; avatars swap `_normal` for `_200x200`.
-- Every image has alt text: the creator's `alt` when present, otherwise a composed description.
-- `loading="lazy"` + `decoding="async"` throughout; only above-the-fold tiles are eager.
-
-> **Unverified:** outbound network to `pbs.twimg.com` is blocked in this sandbox,
-> so I could not confirm the CDN honours those size names. `media.js` therefore
-> strips the `srcset` and retries the bare URL on `error` — if the guess is
-> wrong, the worst case is exactly today's behaviour.
-
-### The lock is now the user's
-
-The hard-coded password is gone. A PIN is opt-in, user-chosen, and the settings
-sheet says plainly that it stops a shoulder-surf and not an attacker — because
-everything here ships to the browser.
-
-### The service worker has no list to maintain
-
-`sw.js` fetches `index.html` at install, reads the assets it references, then
-walks the ES module graph by following each module's own `import` statements.
-The precache is derived from the shipped files at install time, so the drift
-class is gone rather than fixed.
-
-### Native ES modules, still build-free
-
-Explicit dependency graph, no global namespace, no load-order comments. The cost
-is that `file://` no longer works — `index.html` detects it and prints the
-one-line serve command instead of failing silently. `npm start` serves over http.
-
-### Twelve preferences instead of forty-eight
-
-Kept what genuinely varies between people: theme, density, motion, playback
-behaviour, blur-on, seen-dimming, and the PIN.
-
----
-
-## 4 · Layout
-
-```
-index.html              shell, boot skeleton, crash surface
-styles/tokens.css       the only place a value is decided
-styles/base.css         reset, type scale, shell
-styles/components.css   buttons, chips, sheets, toasts, tiles
-styles/views.css        home, library, watch, viewer, palette, settings
-src/main.js             boot, error boundary, lock, SW registration
-src/shell.js            top bar, navigation, routing, hotkeys
-src/viewer.js           the full-screen media theatre
-src/core/store.js       persistence — same keys as before
-src/core/data.js        load + project + fingerprint cache
-src/core/state.js       one store, one subscription channel
-src/core/query.js       filter, sort, search, stats
-src/ui/dom.js           h(), breakpoints, haptics, motion
-src/ui/icons.js         24px icon set, returned as elements
-src/ui/media.js         images, video, formatting
-src/ui/card.js          one card component, three shapes
-src/ui/feedback.js      toasts, sheets, confirms
-src/ui/palette.js       the command palette
-src/ui/actions.js       item actions and the selection bar
-src/views/*.js          home, library, watch, settings, manage
-tools/build-slim.js     POSTS.json → data/posts.slim.json
-tools/serve.js          dependency-free dev server
-tools/check.js          the smoke test
-```
-
-### Compatibility
-
-Unchanged, deliberately: the `POSTS.json` schema, and the storage keys
-`xBookmarks`, `xLibraryState`, `xDashboardPrefs`. An existing archive in the
-browser or the extension opens as-is. Exports are written back in the same
-schema, so a file round-trips — minus `raw`, which is the point.
-
----
+- First load still moves **1.22 MB** of projection (93% smaller than the
+  export), cached in IndexedDB against the file's HTTP fingerprint — an
+  unchanged archive costs one `HEAD` and zero JSON parsing.
+- Windowed grid + `content-visibility: auto` on panels and rail sections.
+- Aspect boxes reserved before images arrive: zero layout shift.
+- `srcset` small/medium renditions with bare-URL fallback; `loading="lazy"`,
+  `decoding="async"`, `fetchpriority="high"` on the spotlight only.
+- Route modules prefetch on nav hover/focus.
+- Icons are a 0.6 KB SVG + 14/11 KB JPEGs, drawn from geometry, not exported
+  from a raster editor.
+- Service worker precache is still derived at install time from `index.html`
+  and the module graph; `VERSION` bumped so v2 caches purge.
 
 ## 5 · Verifying it
 
 ```
 npm install
-npm start          # in one shell
-npm test           # in another
+npm start      # one shell
+npm test       # another
 ```
 
-`tools/check.js` boots the **real** modules — `src/main.js` and everything it
-imports — against a jsdom DOM pointed at the live data file, then asserts on the
-resulting document. Nothing is re-implemented in the harness; if it passes, the
-shipping code ran. jsdom is a DOM and not a browser, so `matchMedia`,
-`IntersectionObserver`, `requestAnimationFrame`, layout and media playback are
-stubbed. Application logic is not.
-
-Current result:
+`tools/check.js` boots the real modules in jsdom at 390px **and** 1440px and
+asserts on the resulting document, including the regressions this rebuild
+exists to kill: the crash surface must compute `display: none`, the desktop
+grid must produce ≥4 equal-width columns, Watch must rebuild once data lands,
+and Escape must close the palette.
 
 ```
-[archive] indexed 1205 items in 406ms from ./data/posts.slim.json
-21/21 checks passed
+36/36 checks passed
 ```
 
-Covered: boot reaches the shell without the crash surface; three destinations;
-the greeting reports the real archive size; feature card, sections, rails and
-creators render; every image has alt text; thumbnails are lazy and request a
-small rendition; initial HTML stays at 138 KB; the Library grid is windowed to 16
-tiles with correct scroll height; search narrows the result count; zero runtime
-errors.
+Visual verification was done in a real headless Chromium (screenshots at
+390/1440, dark and light, every route and overlay) — the gap v2 explicitly
+could not close.
 
-## 6 · Known gaps
+## 6 · Known gaps, stated plainly
 
-Stated plainly rather than papered over:
-
-- **No visual screenshots.** Outbound network to the Playwright CDN is blocked
-  here, so no real browser was available. Layout is reasoned from CSS and
-  asserted structurally, not eyeballed. This is the largest gap.
-- **`pbs.twimg.com` size names unverified**, for the same reason. Fallback is in
-  place; see §3.
-- **Watch and the viewer are exercised structurally, not played.** jsdom has no
-  media pipeline, so autoplay, seeking and snap-paging are unexercised by the
-  test.
-- **Icons changed shape.** The PWA icons in `icons/` are the previous brand mark
-  and now sit against a dark-first shell; they want redrawing.
+- `pbs.twimg.com` size names remain unverified from this sandbox (outbound
+  network blocked); the bare-URL fallback still makes a wrong guess harmless.
+- Video playback is exercised structurally, not watched: jsdom and the
+  sandboxed Chromium both lack the CDN streams.
+- The 12-month chart is honest about single-session captures: it plots when
+  posts were *originally posted*, and the greeting says "imported … in one go"
+  instead of pretending at a 30-day habit.

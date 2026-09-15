@@ -1,71 +1,54 @@
 /* =============================================================================
-   library — the whole archive, one windowed grid.
+   library v3.1 — search, facets and saved views over the shared windowed grid.
+   ========================================================================== */
 
-   1,205 items would be 1,205 DOM subtrees with 1,205 image requests. Instead the
-   grid renders only the rows near the viewport (plus two rows of overscan) and
-   keeps the scroll height honest with spacers, so the scrollbar, the position
-   and the fling all behave as if every tile were real. At any moment there are
-   roughly forty tiles in the document.
-
-   Tiles are a uniform aspect ratio on purpose. A masonry layout looks nicer in a
-   screenshot and makes both windowing and scanning worse; an archive you are
-   hunting through wants a grid you can predict.
-   ============================================================================= */
-
-import { h, icon, clear, onBreakpoint } from "../ui/dom.js";
-import { state, setQuery, subscribe, clearSelection, toggleSelected, selectAll } from "../core/state.js";
-import { results, stats, SORT_LABELS, post as postOf, reshuffle } from "../core/query.js";
-import { card, syncCards } from "../ui/card.js";
+import { h, icon, clear } from "../ui/dom.js";
+import {
+  state, setQuery, resetQuery, subscribe, clearSelection, selectAll, notify,
+  saveView, deleteView,
+} from "../core/state.js";
+import { results, stats, SORT_LABELS, SORT_IDS, reshuffle, authorOf } from "../core/query.js";
+import { createGrid } from "../ui/grid.js";
+import { syncTiles } from "../ui/card.js";
 import { avatar, fmtCount } from "../ui/media.js";
-import { selectionBar } from "../ui/actions.js";
-import { emptyState, toast } from "../ui/feedback.js";
-
-const OVERSCAN = 2;
-const GRID_ASPECT = 4 / 5;
+import { selectionBar, runSelection } from "../ui/actions.js";
+import { emptyState, overlay, toast, promptDialog, confirmDialog } from "../ui/feedback.js";
 
 let root = null;
 let grid = null;
-let viewport = null;
 let unsub = [];
-let frame = 0;
 let lastKey = "";
 let renderSelBar = null;
-let colWidth = 0;
-let rowHeight = 0;
-let cols = 1;
 
 export function mount(host) {
-  root = h("section.library");
+  root = h("section.lib.view-in");
   host.append(root);
   draw();
   unsub.push(subscribe(onState));
-  unsub.push(onBreakpoint(() => { measure(); paintWindow(true); }));
-  addEventListener("scroll", onScroll, { passive: true });
-  addEventListener("resize", onScroll, { passive: true });
 }
 
 export function unmount() {
   unsub.forEach((fn) => fn());
   unsub = [];
-  removeEventListener("scroll", onScroll);
-  removeEventListener("resize", onScroll);
-  root = null;
+  grid?.destroy();
   grid = null;
+  root = null;
   lastKey = "";
 }
 
 function onState() {
-  /* Selection and star changes are patched in place. Anything that changes the
-     result set means a real redraw. */
+  if (!root) return;
+  if (!grid && state.index.media.length) { draw(); return; }
   const key = signature();
   if (key === lastKey) {
-    if (grid) syncCards(grid);
+    grid?.sync(syncTiles);
     renderSelBar?.();
     updateCount();
     return;
   }
   lastKey = key;
-  paintWindow(true);
+  grid?.refresh(true);
+  grid?.sync(syncTiles);
   renderSelBar?.();
   updateCount();
 }
@@ -78,127 +61,145 @@ function signature() {
     Object.keys(state.library.archived).length,
     Object.keys(state.library.hidden).length,
     Object.keys(state.library.starred).length,
+    state.prefs.density, state.prefs.aspect,
   ].join("~");
 }
 
-/* ----------------------------------------------------------------- chrome -- */
+/* ------------------------------------------------------------------ draw -- */
 
 function draw() {
   clear(root);
   clearSelection();
+  grid?.destroy();
+  grid = null;
 
   const s = stats();
-
-  /* Result count and the author banner, if we are filtered to one person. */
-  const head = h("div.lib__head");
-  if (state.query.author) {
-    const author = state.index.authors.find((a) => a.username === state.query.author);
-    head.append(h("div.author-head",
-      avatar(author?.avatar, 48, author?.name),
-      h("div.author-head__text",
-        h("h1.t-title", { text: author?.name || state.query.author }),
-        h("p.t-small", { text: `@${state.query.author} · ${author?.count || 0} items in your archive` }),
-      ),
-      h("button.icon-btn", {
-        type: "button", "aria-label": "Show all creators",
-        onclick: () => setQuery({ author: null }),
-      }, icon("close", 20)),
-    ));
-  } else {
-    head.append(h("div.lib__title-row",
-      h("h1.t-title", { text: "Library" }),
-      h("span.lib__count.t-small.t-num", { text: `${fmtCount(s.media)} items` }),
-    ));
+  if (!s.media) {
+    emptyState(root, {
+      icon: "database", title: "Nothing to browse yet",
+      message: "Import an export or drop POSTS.json into the project folder.",
+      action: { label: "Import", onClick: () => import("./manage.js").then((m) => m.openManage()) },
+    });
+    return;
   }
-  root.append(head);
 
-  /* Search — inline here, because in the Library you are always searching. */
-  const search = h("div.field.lib__search",
-    icon("search", 18),
-    h("input", {
-      type: "search", placeholder: "Search text, creator, link…",
-      "aria-label": "Search the library", autocomplete: "off",
-      enterkeyhint: "search", value: state.query.search,
-      oninput: (e) => debounceSearch(e.target.value),
-      onkeydown: (e) => { if (e.key === "Escape") { e.target.value = ""; setQuery({ search: "" }); } },
-    }),
-    state.query.search ? h("button.icon-btn", {
-      type: "button", "aria-label": "Clear search",
-      onclick: (e) => {
-        const input = e.target.closest(".field").querySelector("input");
-        input.value = ""; setQuery({ search: "" }); input.focus();
-      },
-    }, icon("close", 18)) : null,
-  );
-  root.append(search);
+  root.append(head());
+  root.append(bar());
+  root.append(facets());
+  if (state.prefs.views.length) root.append(viewsRow());
 
-  /* Filters, one row, horizontally scrollable on a phone. */
-  const kinds = [["all", "Everything"], ["video", "Videos"], ["photo", "Photos"]];
-  const chips = h("div.chips.lib__chips");
-  for (const [value, label] of kinds) {
-    chips.append(h("button.chip", {
-      type: "button", "aria-pressed": state.query.kind === value ? "true" : "false",
-      onclick: () => setQuery({ kind: value }),
-    }, label));
-  }
-  chips.append(h("button.chip", {
-    type: "button", "aria-pressed": state.query.unseen ? "true" : "false",
-    onclick: () => setQuery({ unseen: !state.query.unseen }),
-  }, icon("eye", 15), "Unseen"));
-  chips.append(h("button.chip", {
-    type: "button", "aria-pressed": state.query.starred ? "true" : "false",
-    onclick: () => setQuery({ starred: !state.query.starred }),
-  }, icon("star", 15), "Starred"));
-  if (state.query.author) {
-    chips.append(h("button.chip.is-active", {
-      type: "button", onclick: () => setQuery({ author: null }),
-    }, `@${state.query.author}`, icon("close", 14)));
-  }
-  root.append(chips);
+  grid = createGrid(root, results, {
+    ariaLabel: "Search results",
+    emptyBuilder: () => h("div.empty", { style: { position: "static" } },
+      h("div.empty__icon", icon("search", 26)),
+      h("h2", { text: "No matches" }),
+      h("p", { text: "Loosen a filter or clear the search." }),
+      h("button.btn", { type: "button", text: "Clear filters", onclick: () => resetQuery() }),
+    ),
+  });
 
-  /* Sort + selection. These sit on one line so the controls never wrap into a
-     second row and eat the viewport. */
-  const tools = h("div.lib__tools",
-    h("button.lib__sort", {
-      type: "button", "aria-label": "Change sort order",
-      onclick: cycleSort,
-    }, icon("sort", 16), h("span", { text: SORT_LABELS[state.query.sort] || "Recently saved" })),
-    h("span.lib__spacer"),
-    h("button.icon-btn", {
-      type: "button", "aria-label": "Select all visible", title: "Select all",
-      onclick: () => { selectAll(results().slice(0, 400).map((m) => m.id)); toast("Selected up to 400 items"); },
-    }, icon("check", 19)),
-  );
-  root.append(tools);
-
-  /* The windowed grid. */
-  viewport = h("div.grid-viewport");
-  grid = h("div.grid", { role: "list", "aria-label": "Library items" });
-  viewport.append(grid);
-  root.append(viewport);
-
-  renderSelBar = selectionBar(root);
+  renderSelBar = selectionBar((action) => runSelection(action));
   renderSelBar();
 
-  measure();
   lastKey = signature();
-  paintWindow(true);
+  grid.refresh(true);
+  updateCount();
 }
 
-let searchTimer = 0;
-function debounceSearch(value) {
-  clearTimeout(searchTimer);
-  searchTimer = setTimeout(() => setQuery({ search: value }), 180);
+function head() {
+  if (state.query.author) {
+    const a = authorOf(state.query.author);
+    return h("div.author-head.hue", { style: { "--hue": "var(--hue-b)" } },
+      avatar(a?.avatar, 48, a?.name),
+      h("div.author-head__text",
+        h("h1", { text: a?.name || state.query.author }),
+        h("p", { text: `@${state.query.author} · ${a?.count || 0} items` }),
+      ),
+      h("button.icon-btn", { type: "button", "aria-label": "Show all creators", onclick: () => setQuery({ author: null }) }, icon("close", 20)),
+    );
+  }
+  return h("div", { style: { display: "flex", alignItems: "baseline", gap: "10px" } },
+    h("h1.t-h1", { text: "Library" }),
+    h("span.lib__count.t-small", { text: "" }),
+  );
 }
 
-function cycleSort() {
-  const order = ["recent", "oldest", "liked", "reposted", "viewed", "longest", "shortest", "random"];
-  const i = order.indexOf(state.query.sort);
-  const next = order[(i + 1) % order.length];
-  if (next === "random") reshuffle();
-  setQuery({ sort: next });
-  toast(SORT_LABELS[next]);
+function bar() {
+  const input = h("input", {
+    type: "search", placeholder: "Search text, creator, link…",
+    "aria-label": "Search the library", autocomplete: "off",
+    value: state.query.search,
+  });
+  let timer = 0;
+  input.addEventListener("input", () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => setQuery({ search: input.value }), 130);
+  });
+
+  return h("div.lib__bar",
+    h("div.field", icon("search", 17), input),
+    h("button.chip.hue", {
+      type: "button", style: { "--hue": "var(--hue-d)" },
+      onclick: () => { selectAll([]); state.ui.selecting = true; notify(); toast("Tap tiles to select"); },
+    }, icon("check", 14), "Select"),
+  );
 }
+
+function facets() {
+  const q = state.query;
+  const chip = (label, on, onclick, hue) =>
+    h(`button.chip.hue${on ? " is-on" : ""}`, { type: "button", style: hue ? { "--hue": hue } : null, onclick }, label);
+
+  return h("div.lib__facets",
+    chip("Everything", q.kind === "all" && !q.unseen && !q.starred, () => resetQuery(), "var(--hue-b)"),
+    chip("Photos", q.kind === "photo", () => setQuery({ kind: q.kind === "photo" ? "all" : "photo" }), "var(--hue-a)"),
+    chip("Videos", q.kind === "video", () => setQuery({ kind: q.kind === "video" ? "all" : "video" }), "var(--hue-c)"),
+    h("span.gap"),
+    chip("Unseen", q.unseen, () => setQuery({ unseen: !q.unseen }), "var(--hue-d)"),
+    chip("Starred", q.starred, () => setQuery({ starred: !q.starred }), "var(--hue-e)"),
+    h("span.gap"),
+    h("button.chip.hue", { type: "button", style: { "--hue": "var(--hue-c)" }, onclick: openSort },
+      icon("sort", 14), SORT_LABELS[q.sort] || "Sort"),
+    h("button.chip.hue", { type: "button", style: { "--hue": "var(--hue-f)" }, onclick: saveCurrentView },
+      icon("plus", 14), "Save view"),
+  );
+}
+
+function viewsRow() {
+  return h("div.lib__views",
+    h("span.t-label", { text: "Views" }),
+    state.prefs.views.map((v) => h("button.chip", {
+      type: "button",
+      onclick: () => { setQuery({ ...v.query }); toast(`View “${v.name}”`); },
+      oncontextmenu: async (e) => {
+        e.preventDefault();
+        if (await confirmDialog({ title: `Delete view “${v.name}”?`, message: "This only removes the saved filter.", confirmLabel: "Delete", danger: true })) deleteView(v.name);
+      },
+    }, v.name)),
+  );
+}
+
+async function openSort() {
+  const sheet = overlay({ title: "Sort by", size: "sm" });
+  for (const id of SORT_IDS) {
+    sheet.content.append(h("button.menu-row", {
+      type: "button",
+      onclick: () => { if (id === "random") reshuffle(); setQuery({ sort: id }); sheet.close(); },
+    },
+      h("span.menu-row__icon", icon(state.query.sort === id ? "check" : "sort", 17)),
+      h("span.menu-row__text", h("b", { text: SORT_LABELS[id] })),
+    ));
+  }
+}
+
+async function saveCurrentView() {
+  const name = await promptDialog({ title: "Save this view", label: "View name", placeholder: "e.g. Long videos, unopened" });
+  if (!name) return;
+  saveView(name);
+  toast(`View “${name}” saved`);
+}
+
+/* ----------------------------------------------------------------- count -- */
 
 function updateCount() {
   const el = root?.querySelector(".lib__count");
@@ -207,92 +208,3 @@ function updateCount() {
   const total = state.index.media.length;
   el.textContent = n === total ? `${fmtCount(total)} items` : `${fmtCount(n)} of ${fmtCount(total)}`;
 }
-
-/* ------------------------------------------------------------ windowing -- */
-
-function measure() {
-  if (!viewport) return;
-  const style = getComputedStyle(document.documentElement);
-  const min = parseFloat(style.getPropertyValue("--tile-min")) || 168;
-  const gap = parseFloat(style.getPropertyValue("--gap")) || 8;
-  const width = viewport.clientWidth || window.innerWidth - 32;
-
-  cols = Math.max(1, Math.floor((width + gap) / (min + gap)));
-  colWidth = (width - gap * (cols - 1)) / cols;
-  rowHeight = colWidth / GRID_ASPECT + gap + 34;   // 34px = the meta strip
-  grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
-  grid.style.setProperty("--grid-aspect", String(GRID_ASPECT));
-}
-
-function paintWindow(force = false) {
-  if (!grid || !viewport) return;
-  const list = results();
-
-  if (!list.length) {
-    viewport.style.height = "";
-    emptyState(grid, {
-      icon: "search",
-      title: "Nothing matches",
-      message: state.query.search
-        ? `No item in your archive matches “${state.query.search}”.`
-        : "No item matches these filters.",
-      action: { label: "Clear filters", onClick: () => setQuery({ search: "", kind: "all", unseen: false, starred: false, author: null }) },
-    });
-    return;
-  }
-
-  const rows = Math.ceil(list.length / cols);
-  const totalHeight = rows * rowHeight;
-  viewport.style.height = `${totalHeight}px`;
-
-  const top = Math.max(0, viewport.getBoundingClientRect().top + window.scrollY);
-  const start = Math.max(0, Math.floor((window.scrollY - top) / rowHeight) - OVERSCAN);
-  const visibleRows = Math.ceil(window.innerHeight / rowHeight) + OVERSCAN * 2;
-  const end = Math.min(rows, start + visibleRows);
-
-  const key = `${start}:${end}:${cols}:${list.length}`;
-  if (!force && key === grid.dataset.window) return;
-  grid.dataset.window = key;
-
-  /* Translate instead of padding-top: a transformed grid does not create the
-     scroll anchoring jumps that spacer elements do. */
-  grid.style.transform = `translateY(${start * rowHeight}px)`;
-  grid.style.position = "absolute";
-  grid.style.insetInline = "0";
-  grid.style.top = "0";
-
-  const existing = new Map();
-  for (const el of grid.querySelectorAll(".card")) existing.set(el.dataset.mediaId, el);
-
-  const frag = document.createDocumentFragment();
-  const keep = new Set();
-  for (let r = start; r < end; r++) {
-    for (let c = 0; c < cols; c++) {
-      const item = list[r * cols + c];
-      if (!item) break;
-      keep.add(item.id);
-      const cached = existing.get(item.id);
-      if (cached) { frag.append(cached); continue; }
-      frag.append(card(item, list, {
-        shape: "tile",
-        index: r * cols + c,
-        eager: r === start && c < cols,
-      }));
-    }
-  }
-  /* Drop what scrolled away so the document stays small. */
-  for (const [id, el] of existing) if (!keep.has(id)) el.remove();
-  grid.replaceChildren(frag);
-  syncCards(grid);
-}
-
-function onScroll() {
-  if (frame) return;
-  frame = requestAnimationFrame(() => { frame = 0; paintWindow(); });
-}
-
-/* Long-press anywhere in the grid starts selection; a single tap never does. */
-export function beginSelection(id) {
-  toggleSelected(id);
-}
-void beginSelection;
