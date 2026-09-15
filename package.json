@@ -6,7 +6,7 @@
   "description": "A fast, offline-first visual dashboard for your X bookmarks. Bold, media-first, build-free.",
   "scripts": {
     "start": "node tools/serve.js",
-    "build": "node tools/build-slim.js",
+    "build": "node tools/build-public.js",
     "test": "node tools/check.js"
   },
   "devDependencies": {
