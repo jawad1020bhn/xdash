@@ -22,6 +22,8 @@ const FILTERS = [
   { id: "starred", label: "Starred" },
 ];
 
+const HUES = ["var(--hue-a)", "var(--hue-b)", "var(--hue-c)", "var(--hue-d)", "var(--hue-e)", "var(--hue-f)"];
+
 let unsub = [];
 let root = null;
 let grid = null;
